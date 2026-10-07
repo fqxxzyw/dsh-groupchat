@@ -334,3 +334,18 @@ test('working members can delegate bounded follow-up tasks with upstream output'
   const g=(await h.state())[0];assert.equal(g.tasks.length,2);assert.equal(g.tasks[1].assigneeId,B.id);assert.equal(g.tasks[1].status,'completed');assert.deepEqual(g.tasks[1].dependsOn,[g.tasks[0].id]);assert.equal(g.tasks[1].delegationDepth,1);
  }finally{await h.close();}
 });
+
+test('numeric @ targets only that member; unknown and disabled @ do not fall back to every member',async()=>{
+ const h=await harness({},async function*(){yield {type:'text-delta',text:'收到，仅该成员回复。'};});
+ try{
+  await h.member('主对话助手',{model:'main'});await h.member('1',{model:'one'});await h.member('停用',{enabled:false});
+  assert.equal((await h.command({op:'sendMessage',groupId:h.group.id,text:'@1 测试'})).ok,true);
+  await until(async()=>!(await h.state())[0].runtime.running);
+  assert.equal(h.calls.length,1);assert.equal(h.calls[0].model,'one');
+  const count=(await h.state())[0].messages.length;
+  for(const text of ['@不存在 测试','@停用 测试','@1的时候']){
+   const r=await h.command({op:'sendMessage',groupId:h.group.id,text});assert.equal(r.ok,false);assert.match(r.error,/未找到启用成员/);
+  }
+  assert.equal(h.calls.length,1);assert.equal((await h.state())[0].messages.length,count);
+ }finally{await h.close();}
+});

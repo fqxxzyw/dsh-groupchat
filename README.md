@@ -1,8 +1,21 @@
-# dsh-groupchat
+# dsh-groupchat · DeepSeek Harness 多智能体群聊插件
 
-DeepSeek Harness 多智能体群聊插件，让日常聊天与任务协作共存在一个对话窗口。
+**为 DeepSeek Harness（DSH）提供多模型、多角色群聊，让日常聊天、智能体分工、共享记忆与任务协作共存在一个窗口。每个主对话拥有独立群聊，可跨群引入成员并通过 @ 协作。**
 
-**当前版本：1.1.0-beta.5，测试版。** 仓库：https://github.com/fqxxzyw/dsh-groupchat
+[![Version](https://img.shields.io/badge/version-1.1.0--beta.6-4d7bfe?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat/blob/main/package.json)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+[![Local tests](https://img.shields.io/badge/local_tests-31_Node_%2B_2_Chromium-success?style=flat-square)](TEST-RESULTS.md)
+[![GitHub stars](https://img.shields.io/github/stars/fqxxzyw/dsh-groupchat?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat/stargazers)
+[![DSH Plugin](https://img.shields.io/badge/DSH-dsh--plugin-0e7490?style=flat-square)](https://github.com/topics/dsh-plugin)
+[![JavaScript](https://img.shields.io/badge/language-JavaScript-f7df1e?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat)
+
+[安装方式](#安装方式) · [详细功能](#功能详细介绍) · [提交 Bug](https://github.com/fqxxzyw/dsh-groupchat/issues) · [更新日志](CHANGELOG.md) · [本地验收](TESTING.md)
+
+**当前版本：1.1.0-beta.6，测试版。** 自动化使用模拟模型；真实 Windows DSH 的会话切换问题仍待本地验收。这是社区插件，与 DeepSeek Harness 官方无隶属关系。
+
+功能标签：[`dsh-plugin`](https://github.com/topics/dsh-plugin) · [`deepseek-harness`](https://github.com/topics/deepseek-harness) · [`multi-agent`](https://github.com/topics/multi-agent) · [`groupchat`](https://github.com/topics/groupchat) · [`ai`](https://github.com/topics/ai) · [`agent`](https://github.com/topics/agent) · [`plugins`](https://github.com/topics/plugins) · [`javascript`](https://github.com/topics/javascript) · [`open-source`](https://github.com/topics/open-source)
+
+---
 
 ## 功能简介
 
@@ -21,7 +34,7 @@ DeepSeek Harness 多智能体群聊插件，让日常聊天与任务协作共存
 
 > 请安装这个 DeepSeek Harness 插件：https://github.com/fqxxzyw/dsh-groupchat 。先阅读 README，按当前 profile 安装并启用，已有安装则升级，保留群聊数据。
 
-需要 DSH 对话具备插件管理或相应操作能力；普通文字聊天不能自行完成安装。安装后重启、刷新并核对 beta.5。
+需要 DSH 对话具备插件管理或相应操作能力；普通文字聊天不能自行完成安装。安装后重启、刷新并核对 beta.6。
 
 ### 本地测试版（推荐先验收）
 
@@ -31,7 +44,7 @@ DeepSeek Harness 多智能体群聊插件，让日常聊天与任务协作共存
 dsh plugin --profile desktop add link:E:/deepseek_work/dsh-groupchat
 ```
 
-路径按实际解压位置调整。安装后在「设置 → 插件」启用插件，重启宿主并刷新客户端。在聊天区选择「群聊」，确认顶部版本显示 **beta.5**。替换已安装源码前请关闭宿主并备份插件目录和群聊数据；详细验收见 [TESTING.md](TESTING.md)。
+路径按实际解压位置调整。安装后在「设置 → 插件」启用插件，重启宿主并刷新客户端。在聊天区选择「群聊」，确认顶部版本显示 **beta.6**。替换已安装源码前请关闭宿主并备份插件目录和群聊数据；详细验收见 [TESTING.md](TESTING.md)。
 
 ### GitHub 源码安装
 
@@ -144,3 +157,11 @@ window.__DSH_GROUPCHAT_DIAGNOSTICS__?.download()
 ```
 
 如果 bundle 工厂根本没有执行，记录器也无法启动，此时需要宿主 loader / 激活详细日志。浏览器记录器不能代替 Node 宿主崩溃日志。清除记录可在控制台执行 `localStorage.removeItem("dsh-groupchat:diagnostics")` 后刷新。
+
+## beta.6 修正
+
+主背景透明，颜色读取宿主主题变量；弹窗和 @ 菜单仍使用可读的独立表面。成员、任务和记忆按钮分别显示对应内容。侧栏左侧分隔线支持拖动，聚焦后左右方向键调整，宽度在本客户端保存。
+
+导入偏好和群重命名使用插件内弹窗，不再调用桌面壳可能不支持的 window.prompt。未知或停用成员的 @ 会报错并保留草稿，不会回退为全员回复；普通消息不点名仍按原规则全员回复，模型明确请求的后续接力仍存在。
+
+基于用户 beta.5 日志，导出时根窗口为正常高度、外层滚动为 0，尚未捕获输入框上移的瞬间。本版加强内部 flex 布局，并在日志中增加消息区、输入区、侧栏、主会话可见输入框数量及回复目标 ID；相同尺寸的无关祖先样式更新不再刷满日志。需要真实环境继续验收，不能把模拟通过当作实际修复确认。

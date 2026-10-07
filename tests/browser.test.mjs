@@ -66,6 +66,23 @@ test('Chromium: repeated session/view switches preserve geometry, history, draft
     await page.getByRole('button',{name:'记忆',exact:true}).click();
     assert.equal(await page.locator('.gc-member-memory summary').textContent(),'Alice · 1 条记录');
     await page.getByRole('button',{name:'记忆',exact:true}).click();
+    await page.getByRole('button',{name:'导入偏好',exact:true}).click();
+    await page.getByRole('combobox',{name:'导入方式'}).selectOption('skip');
+    await page.getByRole('button',{name:'保存偏好',exact:true}).click();
+    assert.equal(await page.evaluate(()=>localStorage.getItem('dsh-groupchat:import-preference')),'skip');
+    await page.getByRole('button',{name:'任务',exact:true}).click();
+    await page.locator('.gc-panel[data-panel="tasks"]').waitFor();
+    assert.equal(await page.locator('[data-gc-section="memory"]').isVisible(),false);
+    assert.equal(await page.locator('[data-gc-section="tasks"]').first().isVisible(),true);
+    const rail=page.getByRole('separator',{name:'调整侧栏宽度'});await rail.focus();
+    const before=(await page.locator('.gc-panel-shell').boundingBox()).width;await rail.press('ArrowLeft');
+    assert.equal((await page.locator('.gc-panel-shell').boundingBox()).width,before+20);
+    const box=await rail.boundingBox();await page.mouse.move(box.x+4,box.y+20);await page.mouse.down();await page.mouse.move(box.x-56,box.y+20);await page.mouse.up();
+    assert.ok((await page.locator('.gc-panel-shell').boundingBox()).width>before+60);
+    await page.getByRole('button',{name:'记忆',exact:true}).click();
+    assert.equal(await page.locator('[data-gc-section="memory"]').isVisible(),true);
+    assert.equal(await page.locator('[data-gc-section="tasks"]').first().isVisible(),false);
+    await page.getByRole('button',{name:'记忆',exact:true}).click();
     await page.locator('.gc-composer-input').fill('未发送草稿');
     for(let i=0;i<12;i++){
       await page.locator('#switch').click();
@@ -84,7 +101,7 @@ test('Chromium: repeated session/view switches preserve geometry, history, draft
       assert.ok(await page.locator('.gc-composer').evaluate(el=>Math.abs(el.getBoundingClientRect().bottom-window.innerHeight)<2));
     }
     // Host styles arriving after restoration must not recreate a containing block.
-    await page.addStyleTag({content:'[data-phase] .restoredWrapper{position:relative!important;contain:layout!important}'});
+    await page.addStyleTag({content:'[data-phase] .restoredWrapper{position:relative!important;contain:layout!important} [data-phase] .gc-main{flex:0 0 auto;min-height:0} [data-phase] .gc-messages{flex:0 0 auto}'});
     assert.ok(await page.locator('.gc-composer').evaluate(el=>Math.abs(el.getBoundingClientRect().bottom-window.innerHeight)<2));
     // A late native transcript scroll restore must not lift the plugin composer.
     await page.evaluate(()=>{const host=document.querySelector('[data-conversation-scroll]');const spacer=document.createElement('div');spacer.id='native-restore-spacer';spacer.style.cssText='height:2000px;min-height:2000px;flex:none;width:1px';host.appendChild(spacer);host.scrollTop=350;});
@@ -109,13 +126,14 @@ test('Chromium: repeated session/view switches preserve geometry, history, draft
     await page.getByRole('button',{name:'成员',exact:true}).click();
     const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'导出诊断',exact:true}).click()]);
     const diagnostic=JSON.parse(readFileSync(await download.path(),'utf8'));
-    assert.equal(diagnostic.current.version,'1.1.0-beta.5');
+    assert.equal(diagnostic.current.version,'1.1.0-beta.6');
     assert.ok(diagnostic.bootLog.some(entry=>entry.event==='restored-scroll-reset'));
     assert.ok(diagnostic.bootLog.some(entry=>entry.event==='apply-complete'));
+    assert.ok(diagnostic.current.sections.some(section=>section.selector==='.gc-composer'&&section.height>0));
     assert.equal(diagnostic.current.pluginInputs,1);assert.equal(diagnostic.current.messages,2);
     assert.ok(!JSON.stringify(diagnostic).includes('历史消息保留'));
     await page.locator('#blank').click();await page.locator('.gc-composer-input').waitFor();
-    assert.equal(await page.locator('.gc-view').getAttribute('data-groupchat-view'),'1.1.0-beta.5');
+    assert.equal(await page.locator('.gc-view').getAttribute('data-groupchat-view'),'1.1.0-beta.6');
     await page.locator('#return-old').click();
     await page.locator('#toggle').click();await page.locator('#default-input').waitFor();assert.equal(await page.evaluate(()=>window.entryCount()),0);
     assert.equal(await page.locator('[data-gc-host],[data-gc-bridge]').count(),0);
