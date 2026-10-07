@@ -2,7 +2,7 @@
 
 DeepSeek Harness 多智能体群聊插件，让日常聊天与任务协作共存在一个对话窗口。
 
-**当前版本：1.1.0-beta.4，测试版。** 仓库：https://github.com/fqxxzyw/dsh-groupchat
+**当前版本：1.1.0-beta.5，测试版。** 仓库：https://github.com/fqxxzyw/dsh-groupchat
 
 ## 功能简介
 
@@ -15,6 +15,14 @@ DeepSeek Harness 多智能体群聊插件，让日常聊天与任务协作共存
 
 ## 安装方式
 
+### 懒人安装：复制链接给 DSH
+
+复制下面这段话，发给 DSH 主对话，让它协助安装：
+
+> 请安装这个 DeepSeek Harness 插件：https://github.com/fqxxzyw/dsh-groupchat 。先阅读 README，按当前 profile 安装并启用，已有安装则升级，保留群聊数据。
+
+需要 DSH 对话具备插件管理或相应操作能力；普通文字聊天不能自行完成安装。安装后重启、刷新并核对 beta.5。
+
 ### 本地测试版（推荐先验收）
 
 解压测试包，使目录直接包含 package.json、lib 和 cordis.patch.yml，然后运行：
@@ -23,7 +31,7 @@ DeepSeek Harness 多智能体群聊插件，让日常聊天与任务协作共存
 dsh plugin --profile desktop add link:E:/deepseek_work/dsh-groupchat
 ```
 
-路径按实际解压位置调整。安装后在「设置 → 插件」启用插件，重启宿主并刷新客户端。在聊天区选择「群聊」，确认顶部版本显示 **beta.4**。替换已安装源码前请关闭宿主并备份插件目录和群聊数据；详细验收见 [TESTING.md](TESTING.md)。
+路径按实际解压位置调整。安装后在「设置 → 插件」启用插件，重启宿主并刷新客户端。在聊天区选择「群聊」，确认顶部版本显示 **beta.5**。替换已安装源码前请关闭宿主并备份插件目录和群聊数据；详细验收见 [TESTING.md](TESTING.md)。
 
 ### GitHub 源码安装
 
@@ -36,7 +44,7 @@ cd dsh-groupchat
 dsh plugin --profile desktop add link:E:/deepseek_work/dsh-groupchat
 ```
 
-安装前请核对 package.json 中的版本；后续改动将递增版本号。
+安装前请核对 package.json 中的版本。
 
 插件运行通过宿主服务访问 API，不需要在插件里重新填写密钥。需要支持插件客户端和 ctx.llm / ctx.webServer 的 DSH 版本；依赖声明见 package.json。自动化测试不能替代实际 Windows 宿主验收。
 
@@ -120,3 +128,19 @@ npm run test:browser
 ```
 
 测试边界和结果见 [TEST-RESULTS.md](TEST-RESULTS.md)，版本变更见 [CHANGELOG.md](CHANGELOG.md)。
+
+## beta.5 诊断记录
+
+本版改用不透明浅色/深色弹窗和 @ 菜单，统一圆角、留白、输入框和气泡。可选会话注册失败会隔离并显示提示，不再直接抛出到激活流程；目标的空快照为非活动，活动判断读取快照。
+
+布局改以驻留内容区定位，处理宿主迟到的滚动恢复。真实 Windows 的切换 Bug 尚待复现日志确认，不声明已经彻底修复。日志中的“dsh-groupchat: failed”确认激活失败，但单凭该行、退出码和弃用警告无法确定是哪行导致。
+
+记录器自动保留最近 160 条启动、挂载/卸载、尺寸、祖先样式变化和外层滚动事件，保存在当前浏览器。点「导出诊断」下载 JSON；请在出现异常后、继续切换前导出。记录器不保存聊天正文、persona 或 API 配置；全局异常只保留异常类别和去除查询参数的调用位置。
+
+若界面未启动，在开发者工具控制台执行：
+
+```js
+window.__DSH_GROUPCHAT_DIAGNOSTICS__?.download()
+```
+
+如果 bundle 工厂根本没有执行，记录器也无法启动，此时需要宿主 loader / 激活详细日志。浏览器记录器不能代替 Node 宿主崩溃日志。清除记录可在控制台执行 `localStorage.removeItem("dsh-groupchat:diagnostics")` 后刷新。

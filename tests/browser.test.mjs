@@ -73,7 +73,7 @@ test('Chromium: repeated session/view switches preserve geometry, history, draft
       assert.equal(await page.locator('.gc-composer-input').inputValue(),i%2===0?'':'未发送草稿');
       assert.equal(await page.getByText('历史消息保留',{exact:true}).count(),i%2===0?0:1);
       const view=await page.locator('.gc-view').boundingBox(), input=await page.locator('.gc-composer').boundingBox();
-      assert.ok(view.height>500,JSON.stringify(view));assert.ok(input.y>700,JSON.stringify(input));
+      assert.ok(view.height>500,JSON.stringify(view));assert.ok(Math.abs(input.y+input.height-800)<2,JSON.stringify(input));
     }
     // Explicitly retire the Session binding by navigating to no Session, then recreate it.
     assert.equal(await page.evaluate(()=>window.targetRegistered()),true);
@@ -81,18 +81,41 @@ test('Chromium: repeated session/view switches preserve geometry, history, draft
       await page.locator('#new').click();await page.locator('#default-input').waitFor();
       await page.locator('#return-old').click();await page.locator('.gc-composer-input').waitFor();
       assert.equal(await page.locator('.gc-composer-input').inputValue(),'未发送草稿');
-      assert.ok((await page.locator('.gc-composer').boundingBox()).y>700);
+      assert.ok(await page.locator('.gc-composer').evaluate(el=>Math.abs(el.getBoundingClientRect().bottom-window.innerHeight)<2));
     }
     // Host styles arriving after restoration must not recreate a containing block.
     await page.addStyleTag({content:'[data-phase] .restoredWrapper{position:relative!important;contain:layout!important}'});
-    assert.ok((await page.locator('.gc-composer').boundingBox()).y>700);
+    assert.ok(await page.locator('.gc-composer').evaluate(el=>Math.abs(el.getBoundingClientRect().bottom-window.innerHeight)<2));
+    // A late native transcript scroll restore must not lift the plugin composer.
+    await page.evaluate(()=>{const host=document.querySelector('[data-conversation-scroll]');const spacer=document.createElement('div');spacer.id='native-restore-spacer';spacer.style.cssText='height:2000px;min-height:2000px;flex:none;width:1px';host.appendChild(spacer);host.scrollTop=350;});
+    await page.waitForFunction(()=>document.querySelector('[data-conversation-scroll]').scrollTop===0);
+    assert.ok(await page.locator('.gc-composer').evaluate(el=>Math.abs(el.getBoundingClientRect().bottom-window.innerHeight)<2));
+    await page.evaluate(()=>document.getElementById('native-restore-spacer').remove());
+    await page.locator('.gc-composer-input').fill('@Al');
+    await page.locator('.gc-mention-pop').waitFor();
+    assert.equal(await page.locator('.gc-mention-pop').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
+    await page.locator('.gc-composer-input').fill('未发送草稿');
+    await page.getByRole('button',{name:'成员',exact:true}).click();
+    await page.getByRole('button',{name:'member.add',exact:true}).click();
+    assert.equal(await page.locator('.gc-modal').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
+    await page.screenshot({path:'/tmp/gc-beta5-light-modal.png'});
+    await page.emulateMedia({colorScheme:'dark'});
+    assert.equal(await page.locator('.gc-modal').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(32, 38, 51)');
+    assert.equal(await page.locator('.gc-modal').evaluate(el=>getComputedStyle(el).color),'rgb(237, 241, 248)');
+    await page.waitForFunction(()=>getComputedStyle(document.querySelector('.gc-modal .gc-btn')).backgroundColor==='rgb(41, 47, 62)');
+    await page.screenshot({path:'/tmp/gc-beta5-dark-modal.png'});
+    await page.getByRole('button',{name:'close',exact:true}).click();
+    await page.emulateMedia({colorScheme:'light'});
+    await page.getByRole('button',{name:'成员',exact:true}).click();
     const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'导出诊断',exact:true}).click()]);
     const diagnostic=JSON.parse(readFileSync(await download.path(),'utf8'));
-    assert.equal(diagnostic.current.version,'1.1.0-beta.4');
+    assert.equal(diagnostic.current.version,'1.1.0-beta.5');
+    assert.ok(diagnostic.bootLog.some(entry=>entry.event==='restored-scroll-reset'));
+    assert.ok(diagnostic.bootLog.some(entry=>entry.event==='apply-complete'));
     assert.equal(diagnostic.current.pluginInputs,1);assert.equal(diagnostic.current.messages,2);
     assert.ok(!JSON.stringify(diagnostic).includes('历史消息保留'));
     await page.locator('#blank').click();await page.locator('.gc-composer-input').waitFor();
-    assert.equal(await page.locator('.gc-view').getAttribute('data-groupchat-view'),'1.1.0-beta.4');
+    assert.equal(await page.locator('.gc-view').getAttribute('data-groupchat-view'),'1.1.0-beta.5');
     await page.locator('#return-old').click();
     await page.locator('#toggle').click();await page.locator('#default-input').waitFor();assert.equal(await page.evaluate(()=>window.entryCount()),0);
     assert.equal(await page.locator('[data-gc-host],[data-gc-bridge]').count(),0);
@@ -165,7 +188,7 @@ test('Chromium + real plugin HTTP engine: an existing user-only group gets main-
     await page.locator('#new').click();await page.locator('#return-old').click();
     await page.getByText('我是主对话助手，已收到你的测试。',{exact:true}).waitFor();
     assert.equal(await page.getByText('以前只有我的消息',{exact:true}).count(),1);
-    assert.ok((await page.locator('.gc-composer').boundingBox()).y>700);
+    assert.ok(await page.locator('.gc-composer').evaluate(el=>Math.abs(el.getBoundingClientRect().bottom-window.innerHeight)<2));
     state=await(await page.request.get(base+'/groupchat/state')).json();assert.equal(state.groups[0].members.length,1);assert.equal(state.groups[0].messages.length,5);
     assert.equal(calls.length,1);assert.equal(calls[0].provider,'main-api');assert.equal(calls[0].model,'MainModel');
     await page.getByRole('combobox',{name:'对话模式'}).selectOption('work');

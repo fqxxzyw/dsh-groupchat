@@ -150,3 +150,20 @@ test('Markdown handles unfinished streaming fences, tables, headings and safe li
   assert.equal(safeLink('javascript:alert(1)'),null);assert.equal(safeLink('data:text/html,x'),null);
   assert.equal(safeLink('https://example.org'),'https://example.org');
 });
+
+for (const failure of ['lookup', 'registration']) {
+  test(`optional conversation ${failure} failure does not abort client activation`, async () => {
+    const x = load(async route => json(route.endsWith('/state') ? {ok:true,groups:[]} : {ok:true,providers:[]}));
+    const disposers=[];const slots=[];
+    const ctx={
+      get:()=>{if(failure==='lookup')throw Error('optional service unavailable');return {views:{register:()=>{throw Error('duplicate target');}}};},
+      effect:fn=>{const d=fn();if(typeof d==='function')disposers.push(d);},
+      sessions:{},locale:{register:()=>()=>{},bind:()=>key=>key},
+      slots:{inject:(_name,fn)=>fn(),register:(options)=>{slots.push(options);return()=>{};}},
+    };
+    assert.doesNotThrow(()=>x.apply(ctx));
+    assert.ok(slots.some(s=>s.name==='conversation.view'));
+    await new Promise(resolve=>setTimeout(resolve,0));
+    for(const dispose of disposers.reverse())dispose();
+  });
+}
