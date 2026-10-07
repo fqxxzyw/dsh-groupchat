@@ -58,6 +58,7 @@ test('Chromium: repeated session/view switches preserve geometry, history, draft
     assert.equal(await page.locator('.gc-markdown table tbody td').last().textContent(),'成功');
     assert.equal(await page.locator('.gc-markdown script').count(),0);
     assert.equal(await page.locator('.gc-markdown a[href^="javascript:"]').count(),0);
+    assert.equal(await page.getByRole('button',{name:'复制代码',exact:true}).locator('svg').count(),1);
     await page.getByRole('button',{name:'复制代码',exact:true}).click();
     assert.equal(await page.evaluate(()=>window.copiedText),'print("hello")');
     await page.locator('.gc-msg-row').filter({has:page.getByRole('heading',{name:'渲染标题'})}).getByRole('button',{name:'复制消息',exact:true}).click();
@@ -92,7 +93,7 @@ test('Chromium: repeated session/view switches preserve geometry, history, draft
     await page.locator('.gc-composer-input').fill('未发送草稿');
     for(let i=0;i<12;i++){
       await page.locator('#switch').click();
-      await page.waitForFunction(()=>window.entryCount()===1);
+      await page.waitForFunction(()=>window.entryCount()===0);
       assert.equal(await page.locator('.gc-composer-input').inputValue(),i%2===0?'':'未发送草稿');
       assert.equal(await page.getByText('历史消息保留',{exact:true}).count(),i%2===0?0:1);
       const view=await page.locator('.gc-view').boundingBox(), input=await page.locator('.gc-composer').boundingBox();
@@ -132,16 +133,22 @@ test('Chromium: repeated session/view switches preserve geometry, history, draft
     await page.getByRole('button',{name:'成员',exact:true}).click();
     const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'导出诊断',exact:true}).click()]);
     const diagnostic=JSON.parse(readFileSync(await download.path(),'utf8'));
-    assert.equal(diagnostic.current.version,'1.1.0-beta.7');
+    assert.equal(diagnostic.current.version,'1.1.0-beta.8');
     assert.ok(diagnostic.bootLog.some(entry=>entry.event==='restored-scroll-reset'));
     assert.ok(diagnostic.bootLog.some(entry=>entry.event==='apply-complete'));
     assert.ok(diagnostic.current.sections.some(section=>section.selector==='.gc-composer'&&section.height>0));
     assert.equal(diagnostic.current.pluginInputs,1);assert.equal(diagnostic.current.messages,2);
     assert.ok(!JSON.stringify(diagnostic).includes('历史消息保留'));
     await page.locator('#blank').click();await page.locator('.gc-composer-input').waitFor();
-    assert.equal(await page.locator('.gc-view').getAttribute('data-groupchat-view'),'1.1.0-beta.7');
+    assert.equal(await page.locator('.gc-view').getAttribute('data-groupchat-view'),'1.1.0-beta.8');
     await page.locator('#return-old').click();
     await page.locator('#toggle').click();await page.locator('#default-input').waitFor();assert.equal(await page.evaluate(()=>window.entryCount()),0);
+    const [emergencyDownload]=await Promise.all([page.waitForEvent('download'),page.keyboard.press('Control+Alt+Shift+D')]);
+    const emergency=JSON.parse(readFileSync(await emergencyDownload.path(),'utf8'));
+    assert.equal(emergency.current.views,0);assert.equal(emergency.current.pluginInputs,0);
+    await page.getByRole('button',{name:'群聊诊断',exact:true}).waitFor({state:'visible'});
+    const [buttonDownload]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'群聊诊断',exact:true}).click()]);
+    assert.equal(JSON.parse(readFileSync(await buttonDownload.path(),'utf8')).current.version,'1.1.0-beta.8');
     assert.equal(await page.locator('[data-gc-host],[data-gc-bridge]').count(),0);
     assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el=>el.style.getPropertyValue('overflow')),'');
     await page.locator('#toggle').click();await page.locator('.gc-composer-input').waitFor();
@@ -207,6 +214,11 @@ test('Chromium + real plugin HTTP engine: an existing user-only group gets main-
     let state=await(await page.request.get(base+'/groupchat/state')).json();const member=state.groups[0].members[0];assert.ok(member,JSON.stringify(state));
     assert.equal(member.name,'主对话助手');assert.equal(member.provider,'main-api');assert.equal(member.model,'MainModel');assert.equal(member.reasoningEffort,'high');
     assert.equal(state.groups[0].messages.length,3); // Existing history plus two imported real records; no generated reply.
+    await page.getByRole('button',{name:'导入主对话',exact:true}).click();
+    await page.getByRole('dialog',{name:'导入主对话历史',exact:true}).waitFor();
+    await page.getByRole('button',{name:'导入历史',exact:true}).click();
+    await page.getByText('成功导入 0 条新记录',{exact:true}).waitFor();
+    await page.locator('.gc-modal-head button').click();
     await page.locator('.gc-composer-input').fill('测试主模型回复');await page.getByRole('button',{name:'发送',exact:true}).click();
     await page.getByText('我是主对话助手，',{exact:true}).waitFor();
     await page.locator('#new').click();await page.locator('#return-old').click();
@@ -221,6 +233,10 @@ test('Chromium + real plugin HTTP engine: an existing user-only group gets main-
     await page.getByText(/已完成分工，开始执行/).waitFor();
     for(let i=0;i<500;i++){state=await(await page.request.get(base+'/groupchat/state')).json();if(!state.groups[0].runtime.running)break;await new Promise(r=>setTimeout(r,10));}
     assert.equal(calls.length,4);assert.equal(state.groups[0].tasks[0].status,'completed');
+    await page.waitForFunction(async()=>{const r=await fetch('/groupchat/diagnostics');return r.ok;});
+    const autoDiagnostic=await(await page.request.get(base+'/groupchat/diagnostics')).json();
+    assert.equal(autoDiagnostic.version,'1.1.0-beta.8');assert.ok(autoDiagnostic.bootLog.length>0);
+    assert.ok(!JSON.stringify(autoDiagnostic).includes('原会话导入消息'));
     await page.getByRole('button',{name:'记忆',exact:true}).click();
     await page.getByText('主对话助手 · 3 条记录',{exact:true}).waitFor();
     await page.locator('#switch').click();await page.getByText('原会话导入回复',{exact:true}).waitFor();

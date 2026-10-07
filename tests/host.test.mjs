@@ -385,3 +385,28 @@ test('new session defaults apply once; existing group options are retained',asyn
   assert.equal(second.group.workMode,true);assert.equal(second.group.allowAgentManagement,true);
  }finally{await h.close();}
 });
+
+test('manual import appends new main records after imported or skipped decisions and deduplicates',async()=>{
+ const h=await harness();try{
+  const g=(await h.command({op:'ensureSessionGroup',sessionId:'import-session'})).group;
+  const input={op:'importHostHistory',groupId:g.id,sessionId:'import-session',messages:[{role:'user',text:'第一条',sourceKey:'one'}]};
+  assert.equal((await h.command(input)).imported,1);
+  assert.equal((await h.command({...input,append:true,messages:[...input.messages,{role:'assistant',text:'新回复',sourceKey:'two'}]})).imported,1);
+  assert.equal((await h.command({...input,append:true})).imported,0);
+  const second=(await h.command({op:'ensureSessionGroup',sessionId:'skip-session'})).group;
+  await h.command({op:'importHostHistory',groupId:second.id,sessionId:'skip-session',skip:true});
+  assert.equal((await h.command({...input,groupId:second.id,sessionId:'skip-session',append:true})).imported,1);
+ }finally{await h.close();}
+});
+
+test('diagnostics persist independently of chat view and strip chat/credential fields',async()=>{
+ const h=await harness();try{
+  const missing=await fetch(h.base+'/groupchat/diagnostics');assert.equal(missing.status,404);
+  const posted=await fetch(h.base+'/groupchat/diagnostics',{method:'POST',body:JSON.stringify({version:'beta.8',bootLog:[{event:'native-layout-change',inputs:[{top:170,height:100}],text:'PRIVATE_CHAT',apiKey:'PRIVATE_KEY'}],history:[],content:'PRIVATE_CONTENT'})});
+  assert.equal(posted.status,200);
+  const saved=await fetch(h.base+'/groupchat/diagnostics');const data=await saved.json();
+  assert.equal(data.bootLog[0].inputs[0].top,170);assert.match(saved.headers.get('content-disposition'),/beta8-diagnostics/);
+  assert.ok(!JSON.stringify(data).includes('PRIVATE_'));
+  const invalid=await fetch(h.base+'/groupchat/diagnostics',{method:'POST',body:'{}'});assert.equal(invalid.status,400);
+ }finally{await h.close();}
+});

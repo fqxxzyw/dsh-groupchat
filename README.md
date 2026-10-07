@@ -2,16 +2,16 @@
 
 **为 DeepSeek Harness（DSH）提供多模型、多角色群聊，让日常聊天、智能体分工、共享记忆与任务协作共存在一个窗口。每个主对话拥有独立群聊，可跨群引入成员并通过 @ 协作。**
 
-[![Version](https://img.shields.io/badge/version-1.1.0--beta.7-4d7bfe?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat/blob/main/package.json)
+[![Version](https://img.shields.io/badge/version-1.1.0--beta.8-4d7bfe?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat/blob/main/package.json)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Local tests](https://img.shields.io/badge/local_tests-36_Node_%2B_2_Chromium-success?style=flat-square)](TEST-RESULTS.md)
+[![Local tests](https://img.shields.io/badge/local_tests-38_Node_%2B_2_Chromium-success?style=flat-square)](TEST-RESULTS.md)
 [![GitHub stars](https://img.shields.io/github/stars/fqxxzyw/dsh-groupchat?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat/stargazers)
 [![DSH Plugin](https://img.shields.io/badge/DSH-dsh--plugin-0e7490?style=flat-square)](https://github.com/topics/dsh-plugin)
 [![JavaScript](https://img.shields.io/badge/language-JavaScript-f7df1e?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat)
 
 [安装方式](#安装方式) · [详细功能](#功能详细介绍) · [提交 Bug](https://github.com/fqxxzyw/dsh-groupchat/issues) · [更新日志](CHANGELOG.md) · [本地验收](TESTING.md)
 
-**当前版本：1.1.0-beta.7，测试版。** 自动化使用模拟模型；真实 Windows DSH 的会话切换问题仍待本地验收。这是社区插件，与 DeepSeek Harness 官方无隶属关系。
+**当前版本：1.1.0-beta.8，测试版。** 自动化使用模拟模型；真实 Windows DSH 的会话切换问题仍待本地验收。这是社区插件，与 DeepSeek Harness 官方无隶属关系。
 
 功能标签：[`dsh-plugin`](https://github.com/topics/dsh-plugin) · [`deepseek-harness`](https://github.com/topics/deepseek-harness) · [`multi-agent`](https://github.com/topics/multi-agent) · [`groupchat`](https://github.com/topics/groupchat) · [`ai`](https://github.com/topics/ai) · [`agent`](https://github.com/topics/agent) · [`plugins`](https://github.com/topics/plugins) · [`javascript`](https://github.com/topics/javascript) · [`open-source`](https://github.com/topics/open-source)
 
@@ -34,7 +34,7 @@
 
 > 请安装这个 DeepSeek Harness 插件：https://github.com/fqxxzyw/dsh-groupchat 。先阅读 README，按当前 profile 安装并启用，已有安装则升级，保留群聊数据。
 
-需要 DSH 对话具备插件管理或相应操作能力；普通文字聊天不能自行完成安装。安装后重启、刷新并核对 beta.7。
+需要 DSH 对话具备插件管理或相应操作能力；普通文字聊天不能自行完成安装。安装后重启、刷新并核对 beta.8。
 
 ### 本地测试版（推荐先验收）
 
@@ -44,7 +44,7 @@
 dsh plugin --profile desktop add link:E:/deepseek_work/dsh-groupchat
 ```
 
-路径按实际解压位置调整。安装后在「设置 → 插件」启用插件，重启宿主并刷新客户端。在聊天区选择「群聊」，确认顶部版本显示 **beta.7**。替换已安装源码前请关闭宿主并备份插件目录和群聊数据；详细验收见 [TESTING.md](TESTING.md)。
+路径按实际解压位置调整。安装后在「设置 → 插件」启用插件，重启宿主并刷新客户端。在聊天区选择「群聊」，确认顶部版本显示 **beta.8**。替换已安装源码前请关闭宿主并备份插件目录和群聊数据；详细验收见 [TESTING.md](TESTING.md)。
 
 ### GitHub 源码安装
 
@@ -158,7 +158,7 @@ window.__DSH_GROUPCHAT_DIAGNOSTICS__?.download()
 
 如果 bundle 工厂根本没有执行，记录器也无法启动，此时需要宿主 loader / 激活详细日志。浏览器记录器不能代替 Node 宿主崩溃日志。清除记录可在控制台执行 `localStorage.removeItem("dsh-groupchat:diagnostics")` 后刷新。
 
-## beta.7 修正
+## beta.8 修正
 
 主背景透明，颜色读取宿主主题变量；弹窗和 @ 菜单仍使用可读的独立表面。成员、任务和记忆按钮分别显示对应内容。侧栏左侧分隔线支持拖动，聚焦后左右方向键调整，宽度在本客户端保存。
 
@@ -167,7 +167,7 @@ window.__DSH_GROUPCHAT_DIAGNOSTICS__?.download()
 基于用户 beta.5 日志，导出时根窗口为正常高度、外层滚动为 0，尚未捕获输入框上移的瞬间。本版加强内部 flex 布局，并在日志中增加消息区、输入区、侧栏、主会话可见输入框数量及回复目标 ID；相同尺寸的无关祖先样式更新不再刷满日志。需要真实环境继续验收，不能把模拟通过当作实际修复确认。
 
 
-## 全局设置（beta.7）
+## 全局设置（beta.8）
 
 在 DSH **设置 → 多 AI 群聊** 打开；群聊顶部 **导入偏好 / 全局设置** 也可进入。保存即可生效，无需为了修改设置重启应用。
 
@@ -201,7 +201,7 @@ window.__DSH_GROUPCHAT_DIAGNOSTICS__?.download()
 
 ## 内置机器人管理 skill：groupchat-orchestrator
 
-beta.7 的内置协作协议可由模型真正创建本群下级机器人并安排接力，规则见 [AGENT-COLLABORATION.md](AGENT-COLLABORATION.md)。无需在 ChatGPT 安装个人技能，也不会自动安装到 DSH 技能中心。
+beta.8 的内置协作协议可由模型真正创建本群下级机器人并安排接力，规则见 [AGENT-COLLABORATION.md](AGENT-COLLABORATION.md)。无需在 ChatGPT 安装个人技能，也不会自动安装到 DSH 技能中心。
 
 先在群输入框开启“允许机器人管理”，再将协调者设为 **完全访问**。可要求：
 
@@ -211,10 +211,36 @@ beta.7 的内置协作协议可由模型真正创建本群下级机器人并安�
 
 ## 更新与诊断
 
-本地 link 安装且插件目录已加入 HMR 时，可尝试关闭/开启插件或热重载；设置修改不需要重启。普通安装未开启 HMR 时，替换代码后需要刷新/重启以加载新 bundle，不能保证 DSH 自动更新。顶部应显示 **群聊 beta.7**。
+本地 link 安装且插件目录已加入 HMR 时，可尝试关闭/开启插件或热重载；设置修改不需要重启。普通安装未开启 HMR 时，替换代码后需要刷新/重启以加载新 bundle，不能保证 DSH 自动更新。顶部应显示 **群聊 beta.8**。
 
 本次日志确认有重复视图注册异常；已改为单一路径注册并检查已有目标，群聊布局不再直接改写宿主元素的 position/overflow 等内联属性。你的截图中上移的是原生主输入框，导出时群聊输入框仍位于底部，因此 Windows 原问题尚未确认根除。
 
-请在 beta.7 点击新对话、返回历史对话后导出诊断。现在即使已离开群聊，仍记录主输入框的几何和阶段变化。诊断不保存聊天正文和 API 密钥。
+请在 beta.8 点击新对话、返回历史对话后导出诊断。现在即使已离开群聊，仍记录主输入框的几何和阶段变化。诊断不保存聊天正文和 API 密钥。
 
-进一步修正：DSH 的目标激活集合在会话绑定内是单调保留的。群聊重放以前返回 ready=true，会使访问过群聊的原生空白对话被判定为活跃。beta.7 的群聊快照构建器改为中性（不贡献主会话活跃状态），群聊外部历史和布局仍由插件自己管理。增加空重放与空增量均不激活原生会话的回归。
+进一步修正：DSH 的目标激活集合在会话绑定内是单调保留的。群聊重放以前返回 ready=true，会使访问过群聊的原生空白对话被判定为活跃。beta.8 的群聊快照构建器改为中性（不贡献主会话活跃状态），群聊外部历史和布局仍由插件自己管理。增加空重放与空增量均不激活原生会话的回归。
+
+
+## beta.8：界面失灵也能导出诊断
+
+本版移除了群聊挂载/卸载时对 `conversation.composer` 的动态注册；主输入组件保留原生命周期，群聊显示时只隐藏其座位。你的 beta.7 截图显示“群聊”仍选中，但群聊内容已缺失，留下原生目标栏/输入框；因此继续增大群聊高度无法解释完整故障。此改动减少对宿主的干预，尚未在真实 Windows 上确认彻底修复。
+
+复现顺序：**点击新会话 → 不发送任何消息 → 点击任意历史对话 → 尝试切换群聊/对话并滚动历史**。
+
+如果顶部导出按钮消失：
+
+1. 按 **Ctrl + Alt + Shift + D** 导出；快捷键在窗口层捕获，不依赖群聊组件。
+2. 群聊未显示时，点击右下角独立的 **群聊诊断** 按钮。
+3. 按钮/快捷键也不可用时，复现后等待约5秒，取 `$DSH_HOME/storages/dsh-groupchat/diagnostics.json`。未设置 DSH_HOME 时使用用户目录下 `.dsh/storages/dsh-groupchat/diagnostics.json`。该文件由插件宿主端接收客户端日志写入，保留最近一次收到的布局诊断。
+4. 插件服务仍运行时，同源 **GET /groupchat/diagnostics** 也可下载该文件。
+
+必须先确认已加载 beta.8；插件完全未激活、渲染进程彻底卡死或宿主路由不可达时，自动上传无法继续，文件可能是旧的。核对 receivedAt/version。诊断包含会话标识、元素尺寸、选中标签、生命周期和脱敏错误堆栈，不包含聊天正文、API 密钥。自动日志和群聊 state.json 是不同文件，不会覆盖聊天历史。
+
+### 手动导入主对话
+
+已有群也可点击顶部 **导入主对话**，弹窗显示当前可读取的记录数量。点击 **刷新可导入记录** 后，再点击 **导入历史**。成功提示新增条数。首次选过不导入或以前导入过，都可再次手动导入；按源事件标识去重，只追加新记录，不触发模型回复。
+
+如果数量为0，先切到主对话等待历史加载，再返回重试；当前版本读取已加载的用户/助手文字，未加载的更早历史、工具结果和思考过程不在范围内。全局导入偏好仅决定新群首次行为，不会阻止手动入口。
+
+### 复制图标
+
+消息旁和代码块右上角显示重叠方框图标。点击成功短暂显示勾号；失败显示具体原因。鼠标悬停和无障碍名称仍标明“复制消息”或“复制代码”。
