@@ -1,0 +1,11 @@
+# ============================================================================
+# dsh-groupchat —— DSH bundle patch（挂载声明）
+# ============================================================================
+# 把群聊插件插入 profile 配置树。安装方式：
+#   dsh plugin --profile web add link:E:/deepseek_work/dsh-groupchat
+# 安装后 dsh-groupchat 会被写入 profile 的 dsh.profile.bundles。
+# ============================================================================
+
+- insert:
+    - id: groupchat
+      name: dsh-groupchat
