@@ -167,3 +167,22 @@ for (const failure of ['lookup', 'registration']) {
     for(const dispose of disposers.reverse())dispose();
   });
 }
+
+test('different service proxies do not duplicate conversation target registration', async()=>{
+ const x=load(async route=>json(route.endsWith('/state')?{ok:true,groups:[]}:{ok:true,providers:[]}));
+ let calls=0;const definitions=[];const disposers=[];
+ const owner=()=>({get:()=>({views:{entries:()=>definitions,register:definition=>{calls++;definitions.push(definition);return()=>definitions.splice(0);}}}),effect:fn=>{const d=fn();if(typeof d==='function')disposers.push(d);}});
+ const ctx={...owner(),inject:(names,fn)=>{if(names.includes('uiConversation')){fn(owner());fn(owner());}},sessions:{},locale:{register:()=>()=>{},bind:()=>key=>key},slots:{inject:(_name,fn)=>fn(),register:()=>()=>{}}};
+ x.apply(ctx);assert.equal(calls,1);await new Promise(r=>setTimeout(r,0));for(const d of disposers.reverse())d();
+});
+
+
+test('visiting group target cannot promote a blank native conversation after replay',async()=>{
+ const x=load(async route=>json(route.endsWith('/state')?{ok:true,groups:[]}:{ok:true,providers:[]}));
+ let definition;const disposers=[];const ctx={get:()=>({views:{register:d=>{definition=d;return()=>{};}}}),effect:fn=>{const d=fn();if(typeof d==='function')disposers.push(d);},sessions:{},locale:{register:()=>()=>{},bind:()=>key=>key},slots:{inject:(_name,fn)=>fn(),register:()=>()=>{}}};
+ x.apply(ctx);const builder=definition.create();
+ assert.equal(definition.isActive(builder.empty),false);
+ assert.equal(definition.isActive(builder.replace({nodes:[],timeline:[]})),false);
+ assert.equal(definition.isActive(builder.apply({upserts:[],timeline:[]})),false);
+ await new Promise(r=>setTimeout(r,0));for(const d of disposers.reverse())d();
+});

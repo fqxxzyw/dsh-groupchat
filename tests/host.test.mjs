@@ -349,3 +349,39 @@ test('numeric @ targets only that member; unknown and disabled @ do not fall bac
   assert.equal(h.calls.length,1);assert.equal((await h.state())[0].messages.length,count);
  }finally{await h.close();}
 });
+
+test('opt-in full access management creates a child and calls it through bounded relay', async () => {
+  const h = await harness({autoDiscussionRounds:1}, async function* (_options,n) {
+    yield {type:'text-delta',text:n===1?'```groupchat-actions\n{"actions":[{"op":"create_member","name":"提示词专家","persona":"负责优化提示词","task":"给出提示词"}]}\n```':'完成提示词'};
+  });
+  try {
+    const a=await h.member('协调者',{permission:'full'});
+    await h.command({op:'setGroupOptions',groupId:h.group.id,allowAgentManagement:true});
+    await h.command({op:'sendMessage',groupId:h.group.id,text:'@协调者 分配工作'});
+    await until(async()=> (await h.state())[0].messages.some(m=>m.text==='完成提示词'));
+    const g=(await h.state())[0];const child=g.members.find(m=>m.name==='提示词专家');
+    assert.equal(child.parentId,a.id);assert.equal(child.provider,'test');assert.equal(child.model,'model');assert.equal(h.calls.length,2);
+    assert.match(h.calls[1].system,/首次任务：给出提示词/);
+  } finally {await h.close();}
+});
+
+test('management blocks default-off and non-full callers without losing their reply', async () => {
+  for(const permission of ['full','read_only','approval']) {
+    const h=await harness({autoDiscussionRounds:0},async function*(){yield {type:'text-delta',text:'```groupchat-actions\n{"actions":[{"op":"create_member","name":"越权","persona":"职责"}]}\n```'};});
+    try {
+      await h.member('A',{permission});if(permission!=='full')await h.command({op:'setGroupOptions',groupId:h.group.id,allowAgentManagement:true});
+      await h.command({op:'sendMessage',groupId:h.group.id,text:'@A test'});
+      await until(async()=> (await h.state())[0].messages.some(m=>m.kind==='member'&&m.status==='done'));
+      const g=(await h.state())[0];assert.equal(g.members.length,1);assert.ok(g.messages.some(m=>m.kind==='system'&&m.status==='error'));
+    } finally {await h.close();}
+  }
+});
+
+test('new session defaults apply once; existing group options are retained',async()=>{
+ const h=await harness();try {
+  const first=await h.command({op:'ensureSessionGroup',sessionId:'fresh',workMode:true,allowAgentManagement:true});
+  assert.equal(first.group.workMode,true);assert.equal(first.group.allowAgentManagement,true);
+  const second=await h.command({op:'ensureSessionGroup',sessionId:'fresh',workMode:false,allowAgentManagement:false});
+  assert.equal(second.group.workMode,true);assert.equal(second.group.allowAgentManagement,true);
+ }finally{await h.close();}
+});

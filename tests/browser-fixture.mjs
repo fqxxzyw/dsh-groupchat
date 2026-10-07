@@ -55,7 +55,7 @@ window.start = () => {
         h('span',{id:'session'},session),
       ]),
       h('div',{className:'body',key:'body','data-conversation-content':'','data-conversation-region':'chat'},h('div',{className:'scrollBody','data-conversation-scroll':''},[
-        h('div',{'data-slot':'conversation.session',style:{display:'contents'},key:session},h('div',{className:'viewArea'},view&&entry&&session!==undefined&&(session!=='blank-session'||targetDefinition?.isActive({ready:true}))?h('div',{className:restored?'restoredWrapper':'initialWrapper',style:restored?{display:'block',position:'relative',contain:'layout',height:'auto'}:{display:'contents'}},h(entry.component,{...entry.options.inject(session),t,sessionId:session})):h('div',{id:'normal'},'普通会话'))),
+        h('div',{'data-slot':'conversation.session',style:{display:'contents'},key:session},h('div',{className:'viewArea'},view&&entry&&session!==undefined?h('div',{className:restored?'restoredWrapper':'initialWrapper',style:restored?{display:'block',position:'relative',contain:'layout',height:'auto'}:{display:'contents'}},h(entry.component,{...entry.options.inject(session),t,sessionId:session})):h('div',{id:'normal'},'普通会话'))),
         h('div',{className:'composerSeat','data-composer-seat':'',key:'composer'},composer?h(composer.component,{...composer.options.inject(),t,sessionId:session,key:session}):h('textarea',{id:'default-input'})),
       ])),
     ]);
