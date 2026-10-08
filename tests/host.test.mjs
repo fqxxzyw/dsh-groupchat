@@ -4,11 +4,11 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
-import { apply } from '../lib/index.js';
+import { apply, version } from '../lib/index.js';
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function until(fn) { for (let i = 0; i < 200; i++) { if (await fn()) return; await wait(10); } throw Error('Timed out'); }
-async function harness(config = {}, stream) {
+async function harness(config = {}, stream, { implicitFinish = true } = {}) {
   const home = mkdtempSync(join(tmpdir(), 'groupchat-test-'));
   const previousHome = process.env.DSH_HOME;
   process.env.DSH_HOME = home;
@@ -19,8 +19,13 @@ async function harness(config = {}, stream) {
     resolveModelInfo: async () => ({}),
     stream: async function* (options) {
       calls.push(options);
-      if (stream) yield* stream(options, calls.length);
+      let finished = false;
+      if (stream) for await (const chunk of stream(options, calls.length)) {
+        if (chunk.type === 'finish') finished = true;
+        yield chunk;
+      }
       else { yield { type: 'text-delta', text: calls.length % 2 === 1 ? '@B 接力' : '@A 继续' }; }
+      if (implicitFinish && !finished) yield { type: 'finish', reason: { kind: 'stop' } };
     },
   };
   apply({ llm, webServer: { register: (route) => { routes.push(route); return () => {}; } }, effect: (fn) => { disposers.push(fn()); } }, config);
@@ -40,7 +45,7 @@ async function harness(config = {}, stream) {
     if (previousHome === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = previousHome;
     rmSync(home, { recursive: true, force: true });
   };
-  return { base, state, command, group, member, calls, close, routes };
+  return { base, state, command, group, member, calls, close, routes, llm };
 }
 
 test('independent groups, personas, memory, tasks, model sources and bounded mutual @ rounds', async () => {
@@ -121,7 +126,7 @@ test('default main-dialogue member is atomic, retains existing history and never
     const input={op:'ensureDefaultMember',groupId:h.group.id,selection};
     const results=await Promise.all([h.command(input),h.command(input)]);
     assert.ok(results.every(r=>r.ok));
-    const g=(await h.state())[0];assert.equal(g.members.length,1);
+    const g=(await h.state())[0];assert.equal(g.members.length,1);assert.equal(g.members[0].name,'大肥鱼');assert.equal(g.members[0].avatar,'https://raw.githubusercontent.com/Neko3000/deepseek-whalechan/0917fd14bb96ced343145b5c9574f5714d57c0c6/skills/whalechan-image-comic/assets/character-references/chibi/0057_patting_full_belly_rendered_isolated.webp');assert.match(g.members[0].persona,/鲸鱼娘/);
     assert.equal(g.members[0].provider,'main-api');assert.equal(g.members[0].model,'main-model');assert.equal(g.members[0].reasoningEffort,'high');
     await h.command({op:'sendMessage',groupId:g.id,text:'reply please'});
     await until(async()=>!(await h.state())[0].runtime.running);
@@ -135,7 +140,7 @@ test('default main-dialogue member is atomic, retains existing history and never
 
 test('parallel tasks retain member ownership, error causes, outcomes and coordinator summary', async () => {
   let active = 0, maxActive = 0;
-  const h = await harness({}, async function* (o) {
+  const h = await harness({ replyRetryCount: 0 }, async function* (o) {
     active++; maxActive = Math.max(maxActive, active);
     try {
       await wait(30);
@@ -401,12 +406,327 @@ test('manual import appends new main records after imported or skipped decisions
 
 test('diagnostics persist independently of chat view and strip chat/credential fields',async()=>{
  const h=await harness();try{
-  const missing=await fetch(h.base+'/groupchat/diagnostics');assert.equal(missing.status,404);
-  const posted=await fetch(h.base+'/groupchat/diagnostics',{method:'POST',body:JSON.stringify({version:'beta.8',bootLog:[{event:'native-layout-change',inputs:[{top:170,height:100}],text:'PRIVATE_CHAT',apiKey:'PRIVATE_KEY'}],history:[],content:'PRIVATE_CONTENT'})});
+  const missing=await fetch(h.base+'/groupchat/diagnostics');assert.equal(missing.status,200);
+  const initial=await missing.json();assert.equal(initial.host.version,version);assert.deepEqual(initial.modelCalls,[]);
+  const posted=await fetch(h.base+'/groupchat/diagnostics',{method:'POST',body:JSON.stringify({version:'beta.9',bootLog:[{event:'native-layout-change',inputs:[{top:170,height:100}],text:'PRIVATE_CHAT',apiKey:'PRIVATE_KEY'}],history:[],content:'PRIVATE_CONTENT'})});
   assert.equal(posted.status,200);
   const saved=await fetch(h.base+'/groupchat/diagnostics');const data=await saved.json();
-  assert.equal(data.bootLog[0].inputs[0].top,170);assert.match(saved.headers.get('content-disposition'),/beta8-diagnostics/);
+  assert.equal(data.bootLog[0].inputs[0].top,170);assert.match(saved.headers.get('content-disposition'),/beta10-diagnostics/);
   assert.ok(!JSON.stringify(data).includes('PRIVATE_'));
   const invalid=await fetch(h.base+'/groupchat/diagnostics',{method:'POST',body:'{}'});assert.equal(invalid.status,400);
  }finally{await h.close();}
+});
+
+const fastCalls = { autoDiscussionRounds: 0, retryDelayMs: 5 };
+const settled = async h => { await until(async () => !(await h.state())[0].runtime.running); return (await h.state())[0]; };
+
+test('loaded host identity is supplied by the engine and rejects a mismatched client before model work', async () => {
+  const h = await harness(fastCalls);
+  try {
+    await h.member('A');
+    const state = await (await fetch(h.base + '/groupchat/state')).json();
+    assert.equal(state.host.version, version);
+    assert.match(state.host.sourceFile, /lib[/\\]index\.js$/);
+    assert.match(state.host.sourceHash, /^[a-f0-9]{64}$/);
+    assert.ok(Number.isFinite(Date.parse(state.host.startedAt)));
+    const result = await h.command({ op: 'sendMessage', groupId: h.group.id, text: 'hi', clientVersion: '1.1.0-beta.9' });
+    assert.equal(result.ok, false); assert.match(result.error, /不一致/);
+    assert.equal(result.host.instanceId, state.host.instanceId);
+    assert.equal(h.calls.length, 0); assert.equal((await h.state())[0].messages.length, 0);
+  } finally { await h.close(); }
+});
+
+test('reasoning-only evidence retains actual usage and the legacy global budget independently of the client', async () => {
+  const h = await harness({ ...fastCalls, replyRetryCount: 0, replyMaxTokens: 1024 }, async function* () {
+    yield { type: 'reasoning-delta', index: 0, text: 'PRIVATE_THINKING' };
+    yield { type: 'PRIVATE_UNKNOWN_TYPE', text: 'PRIVATE_PAYLOAD' };
+    yield { type: 'usage', usage: { inputTokens: 80, outputTokens: 2048, reasoningTokens: 2048, text: 'PRIVATE_USAGE', apiKey: 'PRIVATE_KEY' } };
+    yield { type: 'finish', reason: { kind: 'stop' } };
+  });
+  try {
+    await h.member('A'); await h.command({ op: 'sendMessage', groupId: h.group.id, text: 'hi' });
+    const g = await settled(h), d = g.messages.at(-1).diagnostics;
+    assert.equal(d.hostVersion, version); assert.equal(d.budgetSource, 'global'); assert.equal(d.requestedMaxTokens, 1024);
+    assert.equal(d.maxTokens, 1024); assert.equal(d.eventCount, 4); assert.equal(d.unknownChunkCount, 1);
+    assert.deepEqual(d.usage, { inputTokens: 80, outputTokens: 2048, reasoningTokens: 2048 });
+    assert.match(g.messages.at(-1).text, /提供商报告输出 2048 token/);
+    const server = await (await fetch(h.base + '/groupchat/diagnostics')).json();
+    assert.equal(server.host.config.replyMaxTokens, 1024); assert.equal(server.modelCalls.length, 1);
+    assert.equal(server.modelCalls[0].operation, 'reply'); assert.equal(server.modelCalls[0].diagnostics.failureCode, 'EMPTY_RESPONSE');
+    assert.ok(!JSON.stringify(server).includes('PRIVATE_'));
+  } finally { await h.close(); }
+});
+
+test('missing token usage is left unknown rather than described as zero output tokens', async () => {
+  const h = await harness({ ...fastCalls, replyRetryCount: 0 }, async function* () { yield { type: 'finish', reason: { kind: 'stop' } }; });
+  try {
+    await h.member('A'); await h.command({ op: 'sendMessage', groupId: h.group.id, text: 'hi' });
+    const m = (await settled(h)).messages.at(-1);
+    assert.equal(m.diagnostics.usage, undefined); assert.match(m.text, /未报告 token 用量/);
+    assert.match(m.text, /不能判断为 0 token/);
+  } finally { await h.close(); }
+});
+
+test('prepared calls materialize exact adapter defaults with a fresh one-shot handle on SERVER retry', async () => {
+  const h = await harness(fastCalls, async function* (_options, n) {
+    if (n === 1) { yield { type: 'finish', reason: { kind: 'error', failure: { code: 'SERVER', message: 'temporary server failure' } } }; return; }
+    yield { type: 'text-delta', index: 0, text: 'HTML reply' };
+    yield { type: 'usage', usage: { inputTokens: 100, outputTokens: 10 } };
+  });
+  let handles = 0;
+  h.llm.prepareCall = async (seed, signal) => {
+    assert.equal('maxTokens' in seed, false); assert.equal('reasoningEffort' in seed, false); assert.ok(signal instanceof AbortSignal);
+    handles++; let used = false;
+    return { config: Object.freeze({ ...seed, maxTokens: 16384, reasoningEffort: 'low' }), adapterDefaults: { maxTokens: true, reasoningEffort: true },
+      stream(options) { assert.equal(used, false); used = true; return h.llm.stream(options); } };
+  };
+  try {
+    await h.member('A'); await h.command({ op: 'sendMessage', groupId: h.group.id, text: 'hi' });
+    const m = (await settled(h)).messages.at(-1), d = m.diagnostics;
+    assert.equal(handles, 2); assert.equal(h.calls.length, 2); assert.equal(m.status, 'done');
+    assert.equal(d.maxTokens, 16384); assert.equal(d.requestedMaxTokens, undefined); assert.equal(d.budgetSource, 'adapter');
+    assert.equal(d.reasoningEffort, 'low'); assert.equal(d.requestMode, 'prepared'); assert.equal(d.history[0].failureCode, 'SERVER');
+    assert.ok(h.calls.every(o => o.maxTokens === 16384 && o.reasoningEffort === 'low'));
+    const log = await (await fetch(h.base + '/groupchat/diagnostics')).json();
+    assert.deepEqual(log.modelCalls.map(entry => entry.diagnostics.phase), ['retrying', 'done']);
+    assert.equal(log.modelCalls[0].callId, log.modelCalls[1].callId);
+  } finally { await h.close(); }
+});
+
+test('invalid prepared configuration never falls back to an unchecked direct request', async () => {
+  const h = await harness(fastCalls);
+  h.llm.prepareCall = async () => { const error = new Error('unsupported effort'); error.code = 'INVALID_REASONING_EFFORT'; throw error; };
+  try {
+    await h.member('A'); await h.command({ op: 'sendMessage', groupId: h.group.id, text: 'hi' });
+    const m = (await settled(h)).messages.at(-1);
+    assert.equal(h.calls.length, 0); assert.equal(m.status, 'error'); assert.equal(m.diagnostics.attempt, 1);
+    assert.equal(m.diagnostics.failureCode, 'INVALID_REASONING_EFFORT');
+  } finally { await h.close(); }
+});
+
+test('cancellation releases an unresponsive prepared-call lookup without dispatching later', async () => {
+  const h = await harness(fastCalls); let resolve;
+  h.llm.prepareCall = () => new Promise(r => { resolve = r; });
+  try {
+    await h.member('A'); await h.command({ op: 'sendMessage', groupId: h.group.id, text: 'hi' });
+    await until(() => Boolean(resolve)); await h.command({ op: 'stopTurn', groupId: h.group.id });
+    const m = (await settled(h)).messages.at(-1);
+    assert.match(m.text, /已停止/); assert.equal(h.calls.length, 0);
+    resolve({ config: { provider: 'test', model: 'model' }, stream: o => h.llm.stream(o) });
+    await wait(10); assert.equal(h.calls.length, 0);
+  } finally { await h.close(); }
+});
+
+test('model budgets are omitted by default in dialogue, planning and connection tests', async () => {
+  const h = await harness(fastCalls, async function* (o) {
+    yield { type: 'text-delta', text: o.messages.at(-1).content[0].text.includes('只返回 JSON')
+      ? '[{"title":"交付文字方案","assignee":"A","dependsOn":[]}]' : 'OK' };
+  });
+  try {
+    const A = await h.member('A');
+    await h.command({ op:'sendMessage', groupId:h.group.id, text:'@A hello' }); await settled(h);
+    assert.equal((await h.command({op:'testConnection',groupId:h.group.id,member:A})).ok,true);
+    await h.command({op:'planTasks',groupId:h.group.id,text:'写一份方案'}); await settled(h);
+    assert.ok(h.calls.length >= 5);
+    assert.ok(h.calls.every(o => !Object.hasOwn(o,'maxTokens')));
+  } finally { await h.close(); }
+});
+
+test('explicit member budgets override global budgets; clearing sampling settings removes stale values', async () => {
+  const h = await harness({...fastCalls,replyMaxTokens:4096},async function*(){yield{type:'text-delta',text:'OK'};});
+  try {
+    const A = await h.member('A',{maxTokens:8192,temperature:0.3,reasoningEffort:'max'});
+    await h.command({op:'sendMessage',groupId:h.group.id,text:'hi'}); await settled(h);
+    assert.equal(h.calls[0].maxTokens,8192);
+    const changed = await h.command({op:'updateMember',groupId:h.group.id,member:{...A,maxTokens:null,temperature:null,reasoningEffort:''}});
+    assert.equal(changed.member.maxTokens,undefined); assert.equal(changed.member.temperature,undefined); assert.equal(changed.member.reasoningEffort,undefined);
+    await h.command({op:'sendMessage',groupId:h.group.id,text:'hi again'}); await settled(h);
+    assert.equal(h.calls[1].maxTokens,4096); assert.equal(h.calls[1].temperature,1); assert.ok(!Object.hasOwn(h.calls[1],'reasoningEffort'));
+  } finally { await h.close(); }
+});
+
+test('reasoning-only max-tokens preserves diagnosis without showing thinking or retrying a budget failure',async()=>{
+  const secret='PRIVATE_REASONING';
+  const h=await harness(fastCalls,async function*(){yield{type:'reasoning-delta',index:0,text:secret};yield{type:'finish',reason:{kind:'max-tokens'}};});
+  try {
+    await h.member('A',{maxTokens:1024}); await h.command({op:'sendMessage',groupId:h.group.id,text:'代码'});
+    const g=await settled(h),m=g.messages.at(-1);
+    assert.equal(h.calls.length,1);assert.equal(m.status,'error');assert.match(m.text,/MAX_TOKENS.*输出上限/);
+    assert.equal(m.diagnostics.reasoningChars,secret.length);assert.equal(m.diagnostics.finishReason,'max-tokens');assert.ok(!JSON.stringify(g).includes(secret));
+    assert.equal(g.memberMemories.A,undefined);
+  }finally{await h.close();}
+});
+
+test('truncated visible output remains an error and cannot create agents, relay or become memory',async()=>{
+  const h=await harness(fastCalls,async function*(){yield{type:'text-delta',text:'@B partial\n```groupchat-actions\n{"actions":[{"op":"create_member","name":"C"}]}\n```'};yield{type:'finish',reason:{kind:'max-tokens'}};});
+  try{
+    const A=await h.member('A');await h.member('B');await h.command({op:'setGroupOptions',groupId:h.group.id,allowAgentManagement:true});
+    await h.command({op:'sendMessage',groupId:h.group.id,text:'@A 写代码'});const g=await settled(h);
+    assert.equal(h.calls.length,1);assert.equal(g.members.length,2);assert.equal(g.messages.at(-1).status,'error');assert.match(g.messages.at(-1).text,/partial.*[\s\S]*MAX_TOKENS/);assert.equal(g.memberMemories[A.id]?.notes.length??0,0);
+  }finally{await h.close();}
+});
+
+test('transport and reasoning-only empty response retry within one bubble, then record one successful result',async()=>{
+  const h=await harness(fastCalls,async function*(o,n){
+    if(n===1){yield{type:'finish',reason:{kind:'error',failure:{code:'TRANSPORT',message:'channel failed',status:503,requestId:'request-one'}}};return;}
+    if(n===2){yield{type:'reasoning-delta',text:'PRIVATE_REASONING'};yield{type:'finish',reason:{kind:'stop'}};return;}
+    yield{type:'text-delta',text:'正文已恢复'};
+  });
+  try{
+    const A=await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'@A 你好'});const g=await settled(h),m=g.messages.at(-1);
+    assert.equal(h.calls.length,3);assert.equal(g.messages.length,2);assert.equal(m.text,'正文已恢复');assert.equal(m.status,'done');assert.equal(m.diagnostics.attempt,3);
+    assert.deepEqual(m.diagnostics.history.map(d=>d.failureCode),['TRANSPORT','EMPTY_RESPONSE']);assert.equal(m.diagnostics.history[0].requestId,'request-one');assert.equal(g.memberMemories[A.id].notes.length,1);assert.ok(!JSON.stringify(g).includes('PRIVATE_REASONING'));
+  }finally{await h.close();}
+});
+
+test('empty completions exhaust exactly two retries and retain their actual finish reason',async()=>{
+  const h=await harness(fastCalls,async function*(){yield{type:'finish',reason:{kind:'stop'}};});try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'hi'});const g=await settled(h);
+    assert.equal(h.calls.length,3);assert.equal(g.messages.length,2);assert.match(g.messages.at(-1).text,/EMPTY_RESPONSE.*已尝试 3 次/);assert.equal(g.messages.at(-1).diagnostics.finishReason,'stop');
+  }finally{await h.close();}
+});
+
+for(const failure of [{code:'QUOTA',message:'out of quota',status:429},{code:'AUTHENTICATION',message:'invalid key',status:401},{code:'CONTEXT_WINDOW_EXCEEDED',message:'context too long',status:400}]){
+  test(`structured ${failure.code} is preserved and never retried`,async()=>{
+    const h=await harness(fastCalls,async function*(){const e=Error('adapter wrapper');e.failure={...failure,requestId:'request-fatal'};throw e;});try{
+      await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'hi'});const g=await settled(h),m=g.messages.at(-1);
+      assert.equal(h.calls.length,1);assert.ok(m.text.includes(failure.code));assert.ok(m.text.includes(`HTTP ${failure.status}`));assert.ok(m.text.includes('request-fatal'));assert.equal(m.diagnostics.failureCode,failure.code);
+    }finally{await h.close();}
+  });
+}
+
+test('visible partial transport failures never replay text or pollute subsequent successful history',async()=>{
+  const h=await harness(fastCalls,async function*(o,n){yield{type:'text-delta',text:n===1?'PARTIAL_FAILED':'OK'};if(n===1)yield{type:'finish',reason:{kind:'error',failure:{code:'TRANSPORT',message:'lost midstream'}}};});try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'first'});const g=await settled(h);
+    assert.equal(h.calls.length,1);assert.match(g.messages.at(-1).text,/PARTIAL_FAILED[\s\S]*TRANSPORT/);
+    await h.command({op:'sendMessage',groupId:h.group.id,text:'second'});await settled(h);
+    assert.equal(h.calls.length,2);assert.ok(!JSON.stringify(h.calls[1].messages).includes('PARTIAL_FAILED'));
+  }finally{await h.close();}
+});
+
+test('assembled block-end fallback deduplicates text and counts reasoning without exposing it',async()=>{
+  const h=await harness(fastCalls,async function*(){
+    yield{type:'reasoning-delta',index:0,text:'secret'};yield{type:'block-end',index:0,block:{type:'reasoning',text:'secret extra'}};
+    yield{type:'text-delta',index:1,text:'你'};yield{type:'block-end',index:1,block:{type:'text',text:'你好'}};yield{type:'block-end',index:2,block:{type:'text',text:'，世界'}};
+  });try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'hi'});const g=await settled(h);
+    assert.equal(g.messages.at(-1).text,'你好，世界');assert.equal(g.messages.at(-1).diagnostics.reasoningChars,12);assert.ok(!JSON.stringify(g).includes('secret'));
+  }finally{await h.close();}
+});
+
+test('missing finish is classified as incomplete transport, preserving partial text without retry',async()=>{
+  const h=await harness(fastCalls,async function*(){yield{type:'text-delta',text:'partial'};},{implicitFinish:false});try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'hi'});const g=await settled(h);
+    assert.equal(h.calls.length,1);assert.equal(g.messages.at(-1).status,'error');assert.match(g.messages.at(-1).text,/INCOMPLETE_RESPONSE/);
+  }finally{await h.close();}
+});
+
+test('stop releases a group even when adapter next ignores abort, allowing a fresh conversation',async()=>{
+  const h=await harness({...fastCalls,replyIdleTimeoutMs:5000},async function*(o,n){if(n===1)await new Promise(()=>{});else yield{type:'text-delta',text:'new reply'};});try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'first'});await until(()=>h.calls.length===1);
+    await h.command({op:'stopTurn',groupId:h.group.id});const stopped=await settled(h);assert.equal(stopped.messages.at(-1).text,'[已停止]');assert.ok(h.calls[0].signal.aborted);
+    assert.equal((await h.command({op:'sendMessage',groupId:h.group.id,text:'second'})).ok,true);assert.equal((await settled(h)).messages.at(-1).text,'new reply');assert.equal(h.calls.length,2);
+  }finally{await h.close();}
+});
+
+test('idle timeout bounds a nonresponsive adapter, retries at most twice, and clears typing/busy',async()=>{
+  const h=await harness({...fastCalls,replyIdleTimeoutMs:25,replyTimeoutMs:1000},async function*(){await new Promise(()=>{});});try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'hi'});const g=await settled(h);
+    assert.equal(h.calls.length,3);assert.match(g.messages.at(-1).text,/TIMEOUT/);assert.equal(g.runtime.running,false);assert.deepEqual(g.runtime.typing,[]);assert.ok(h.calls.every(o=>o.signal.aborted));
+  }finally{await h.close();}
+});
+
+test('active reasoning refreshes the idle watchdog while the total deadline still bounds a call',async()=>{
+  const h=await harness({...fastCalls,replyIdleTimeoutMs:80,replyTimeoutMs:1000},async function*(){for(let n=0;n<6;n++){await wait(25);yield{type:'reasoning-delta',text:'x'};}yield{type:'text-delta',text:'OK'};});try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'hi'});const g=await settled(h);
+    assert.equal(h.calls.length,1);assert.equal(g.messages.at(-1).text,'OK');assert.equal(g.messages.at(-1).diagnostics.reasoningChars,6);
+  }finally{await h.close();}
+});
+
+test('stop during retry backoff prevents another model call',async()=>{
+  const h=await harness({...fastCalls,retryDelayMs:500},async function*(){yield{type:'finish',reason:{kind:'error',failure:{code:'TRANSPORT',message:'failed'}}};});try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'hi'});await until(async()=> (await h.state())[0].messages.at(-1)?.diagnostics?.phase==='retrying');
+    await h.command({op:'stopTurn',groupId:h.group.id});const g=await settled(h);assert.equal(h.calls.length,1);assert.equal(g.messages.at(-1).text,'[已停止]');assert.equal(g.messages.at(-1).diagnostics.phase,'stopped');
+  }finally{await h.close();}
+});
+
+test('terminal finish closes plugin wait without waiting for a broken iterator to end',async()=>{
+  const h=await harness(fastCalls,async function*(){yield{type:'text-delta',text:'OK'};yield{type:'finish',reason:{kind:'stop'}};await new Promise(()=>{});});try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'hi'});assert.equal((await settled(h)).messages.at(-1).text,'OK');
+  }finally{await h.close();}
+});
+
+test('connection tests reject finish-only false positives and bound ignored abort',async()=>{
+  for(const stalled of [false,true]){
+    const h=await harness({...fastCalls,replyRetryCount:0,connectionTestTimeoutMs:40,replyIdleTimeoutMs:1000},async function*(){if(stalled)await new Promise(()=>{});else yield{type:'finish',reason:{kind:'stop'}};});try{
+      const A=await h.member('A');const result=await h.command({op:'testConnection',groupId:h.group.id,member:A});
+      assert.equal(result.ok,false);assert.match(result.error,stalled?/TIMEOUT/:/EMPTY_RESPONSE/);const g=(await h.state())[0];assert.equal(g.members[0].connection.state,'error');assert.equal(g.messages.length,0);assert.ok(!Object.hasOwn(h.calls[0],'maxTokens'));
+    }finally{await h.close();}
+  }
+});
+
+test('planning shares transient retries and budget diagnostics with dialogue',async()=>{
+  const h=await harness(fastCalls,async function*(o,n){if(n===1){yield{type:'finish',reason:{kind:'error',failure:{code:'TRANSPORT',message:'failed'}}};return;}yield{type:'text-delta',text:o.messages.at(-1).content[0].text.includes('只返回 JSON')?'[{"title":"交付方案","assignee":"A"}]':'完成'};});try{
+    await h.member('A');await h.command({op:'planTasks',groupId:h.group.id,text:'写方案'});const g=await settled(h);assert.equal(h.calls.length,4);assert.equal(g.tasks[0].status,'completed');assert.ok(g.messages.every(m=>m.status==='done'));
+  }finally{await h.close();}
+});
+
+test('planning max-tokens does not become a misleading JSON parse error or schedule tasks',async()=>{
+  const h=await harness(fastCalls,async function*(){yield{type:'reasoning-delta',text:'hidden'};yield{type:'finish',reason:{kind:'max-tokens'}};});try{
+    await h.member('A');await h.command({op:'planTasks',groupId:h.group.id,text:'写方案'});const g=await settled(h);assert.equal(g.tasks.length,0);assert.equal(h.calls.length,1);assert.match(g.messages.at(-1).text,/MAX_TOKENS/);assert.equal(g.messages.at(-1).diagnostics.reasoningChars,6);
+  }finally{await h.close();}
+});
+
+test('chat stays chat with pending tasks; explicit empty-board execution infers grounded tasks from dialogue',async()=>{
+  const source='@A 写一个 CNN 演示 HTML';
+  const h=await harness(fastCalls,async function*(o){yield{type:'text-delta',text:o.messages.at(-1).content[0].text.includes('只返回 JSON')?JSON.stringify([{title:'写一个 CNN 演示 HTML',assignee:'B',source,dependsOn:[]}]):'等待协作指令'};});try{
+    const A=await h.member('A');await h.member('B');await h.command({op:'sendMessage',groupId:h.group.id,text:source});const chat=await settled(h);assert.equal(chat.tasks.length,0);assert.equal(h.calls.length,1);
+    assert.equal((await h.command({op:'executeTasks',groupId:h.group.id})).ok,true);const g=await settled(h);assert.equal(g.tasks.length,1);assert.equal(g.tasks[0].assigneeId,A.id);assert.equal(g.tasks[0].status,'completed');assert.equal(g.messages.filter(m=>m.kind==='user').length,1);
+    const task=(await h.command({op:'addTask',groupId:h.group.id,title:'以后再执行'})).task;
+    const count=h.calls.length;await h.command({op:'sendMessage',groupId:h.group.id,text:'@A 你好'});const end=await settled(h);assert.equal(h.calls.length,count+1);assert.equal(end.tasks.find(t=>t.id===task.id).status,'pending');
+  }finally{await h.close();}
+});
+
+test('work-mode greeting falls back to targeted chat without creating or executing tasks',async()=>{
+  const h=await harness(fastCalls,async function*(o){yield{type:'text-delta',text:o.messages.at(-1).content[0].text.includes('只返回 JSON')?'[]':'你好'};});try{
+    const A=await h.member('A');await h.member('B');await h.command({op:'setGroupOptions',groupId:h.group.id,workMode:true});
+    await h.command({op:'planTasks',groupId:h.group.id,text:'@A 你好',allowChatFallback:true});const g=await settled(h);
+    assert.equal(g.tasks.length,0);assert.equal(g.messages.length,2);assert.equal(g.messages.at(-1).speakerId,A.id);assert.equal(g.messages.at(-1).text,'你好');assert.equal(g.runtime.running,false);
+  }finally{await h.close();}
+});
+
+test('empty-board inference does not invent tasks from greetings or create phantom user messages',async()=>{
+  const h=await harness(fastCalls,async function*(o){yield{type:'text-delta',text:o.messages.at(-1).content[0].text.includes('只返回 JSON')?'[]':'你好'};});try{
+    await h.member('A');await h.command({op:'executeTasks',groupId:h.group.id});let g=await settled(h);assert.equal(h.calls.length,0);assert.equal(g.tasks.length,0);
+    await h.command({op:'sendMessage',groupId:h.group.id,text:'你好'});await settled(h);await h.command({op:'planTasks',groupId:h.group.id,text:''});g=await settled(h);
+    assert.equal(g.tasks.length,0);assert.equal(g.messages.filter(m=>m.kind==='user').length,1);assert.match(g.messages.at(-1).text,/未识别到/);
+  }finally{await h.close();}
+});
+
+test('inferred task sources must be actual user text, not a model invention',async()=>{
+  const h=await harness(fastCalls,async function*(o){yield{type:'text-delta',text:o.messages.at(-1).content[0].text.includes('只返回 JSON')?'[{"title":"删除文件","assignee":"A","source":"用户从未说过"}]':'你好'};});try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'你好'});await settled(h);await h.command({op:'executeTasks',groupId:h.group.id});const g=await settled(h);assert.equal(g.tasks.length,0);assert.match(g.messages.at(-1).text,/缺少对应的用户原句/);
+  }finally{await h.close();}
+});
+
+test('mention routing supports fullwidth @, punctuation and case-insensitive all, ignoring email addresses',async()=>{
+  const h=await harness(fastCalls,async function*(){yield{type:'text-delta',text:'OK'};});try{
+    const A=await h.member('前端工程'),B=await h.member('前端工程师');
+    await h.command({op:'sendMessage',groupId:h.group.id,text:'请＠前端工程师；写示例，邮箱 test@example.com'});let g=await settled(h);assert.equal(h.calls.length,1);assert.equal(g.messages.at(-1).speakerId,B.id);
+    await h.command({op:'sendMessage',groupId:h.group.id,text:'@ALL 你好'});g=await settled(h);assert.equal(h.calls.length,3);assert.deepEqual(g.messages.filter(m=>m.kind==='member').slice(-2).map(m=>m.speakerId),[A.id,B.id]);
+    const before=h.calls.length;assert.equal((await h.command({op:'planTasks',groupId:h.group.id,text:'@前端 写代码'})).ok,false);assert.equal(h.calls.length,before);
+  }finally{await h.close();}
+});
+
+test('provider retry delay is respected before a successful second attempt',async()=>{
+  const starts=[];
+  const h=await harness(fastCalls,async function*(o,n){starts.push(Date.now());if(n===1)yield{type:'finish',reason:{kind:'error',failure:{code:'RATE_LIMIT',status:429,message:'try later',providerRetryAfterMs:50}}};else yield{type:'text-delta',text:'OK'};});try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'hi'});const g=await settled(h);assert.equal(h.calls.length,2);assert.ok(starts[1]-starts[0]>=45);assert.equal(g.messages.at(-1).text,'OK');
+  }finally{await h.close();}
+});
+
+test('total deadline ends continuously active reasoning without retrying the expired call',async()=>{
+  const h=await harness({...fastCalls,replyTimeoutMs:100,replyIdleTimeoutMs:1000},async function*(){for(let i=0;i<20;i++){await wait(20);yield{type:'reasoning-delta',text:'x'};}});try{
+    await h.member('A');await h.command({op:'sendMessage',groupId:h.group.id,text:'hi'});const g=await settled(h);assert.equal(h.calls.length,1);assert.match(g.messages.at(-1).text,/TIMEOUT.*超过/);assert.equal(g.messages.at(-1).diagnostics.failureCode,'TIMEOUT');assert.equal(g.runtime.running,false);
+  }finally{await h.close();}
 });

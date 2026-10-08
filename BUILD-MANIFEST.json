@@ -1,0 +1,74 @@
+{
+  "version": "1.1.0-beta.11",
+  "algorithm": "sha256",
+  "files": [
+    {
+      "path": "AGENT-COLLABORATION.md",
+      "sha256": "a6c1b78477357f916ec456ae022a0267317d5a92e4587a1be77d8786d6f258bd"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "0aa8f27a36e41a95a6c45072659bf0ff1b2da3d3a1b6152512038cf4b3d12e63"
+    },
+    {
+      "path": "INSTALL.md",
+      "sha256": "1d0d87d501743c98eee08021d2f2ac2a0f632bdeee887bbed6553a64cc660223"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "6468423f8a7a9b218a073745aa29ddaa1d085efb3e06dfe5214325283d339cb6"
+    },
+    {
+      "path": "README.md",
+      "sha256": "ade5d9d983c98d75c54241e0eb82891df34800f42865c54bc0b34cf887930ec3"
+    },
+    {
+      "path": "TEST-RESULTS.md",
+      "sha256": "e25dc33478b8a9ad6a5fbd83f58b0240f412dcd79e7898e4050a904c8c4534af"
+    },
+    {
+      "path": "TESTING.md",
+      "sha256": "2aed831b2d9f5fdad53df91fa6854b08574bf2954c85173373b0aec2c4fa6cb0"
+    },
+    {
+      "path": "cordis.patch.yml",
+      "sha256": "fe9b98fcea73d32d9697eb7d800e9894979d67e6423e531e8394bd83cdeca5ad"
+    },
+    {
+      "path": "install-local.ps1",
+      "sha256": "1c8ad3634594f06a9d68212fac2c632c3cd1e3fc2ec4a8bfa21e4322401069a1"
+    },
+    {
+      "path": "lib/client.js",
+      "sha256": "b5c8db5949d28cd33e3c97fbc23a5217d7497124dea2aaf6d6ea136f432cd4e0"
+    },
+    {
+      "path": "lib/index.js",
+      "sha256": "9add70ad283ccc0f3312d4309543e317c6eef4d08f483eed5f623655e33a4035"
+    },
+    {
+      "path": "package.json",
+      "sha256": "fb06c93254d4a5ffe12a108d0553d3fd6b6fce05f689791665d371d366e51635"
+    },
+    {
+      "path": "scripts/verify-install.mjs",
+      "sha256": "90e6a606d40916afbddff5776bdad17c4cd45b237901579240cb7091795ae89f"
+    },
+    {
+      "path": "tests/browser-fixture.mjs",
+      "sha256": "99361559891e4995edb645bd17be04820b3cb5d1ffdfa9680ae9e266ba2af662"
+    },
+    {
+      "path": "tests/browser.test.mjs",
+      "sha256": "301552b9f1b9a03596b4808b8b37921146518252cba806b6b28bc43cfbe4feec"
+    },
+    {
+      "path": "tests/client.test.mjs",
+      "sha256": "07c8708a49df89d5490b394a90d698f19e33fcbffb48dd9316657b517fec109c"
+    },
+    {
+      "path": "tests/host.test.mjs",
+      "sha256": "7b13fc23190c8eb4b00f1722e84b105014a7cbbf90bbb69741b07298622d107d"
+    }
+  ]
+}
