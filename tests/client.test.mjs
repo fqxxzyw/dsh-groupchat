@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-const source = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8').replace('exports.apply = apply;', 'exports.__test = { store, createApi, applyFrame, mergeCommandGroup, activeGroup, mainSelectionOf, hostContextOf, markdownBlocks, safeLink }; exports.apply = apply;');
+const source = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8').replace('exports.apply = apply;', 'exports.__test = { store, createApi, applyFrame, mergeCommandGroup, activeGroup, mainSelectionOf, hostContextOf, markdownBlocks, safeLink, bootLog, hostCompatibility, receiveHost, normalizePreferences, uiScale, taskPresentation }; exports.apply = apply;');
+const host = { version: '1.1.0-beta.11', instanceId: 'test-host', sourceFile: 'C:/plugins/dsh-groupchat/lib/index.js', config: { replyRetryCount: 2 } };
 function load(fetcher, clock = { setTimeout, clearTimeout }) {
   let exports;
   const copy = (x) => typeof x !== 'object' || x === null ? x : Array.isArray(x) ? x.map(copy) : Object.fromEntries(Object.entries(x).map(([k, v]) => [k, copy(v)]));
@@ -14,10 +15,109 @@ function load(fetcher, clock = { setTimeout, clearTimeout }) {
     window: { __ModuleLoader__: { load: (bundle) => { exports = bundle.factory((name) => name === 'react' ? { Component: class {} } : { createSnapshotStore }); } } },
     fetch: fetcher, ...clock, AbortController, TextDecoder, Date, console, crypto: { randomUUID: () => 'test-id' },
   });
+  exports.__test.store.update(s => { s.host = host; s.hostChecked = true; });
   return exports;
 }
-const json = (value) => new Response(JSON.stringify(value), { headers: { 'content-type': 'application/json' } });
+const json = (value) => new Response(JSON.stringify({ host, ...value }), { headers: { 'content-type': 'application/json' } });
 const group = { id: 'g', seq: 0, name: 'G', members: [], messages: [], tasks: [], memory: '' };
+
+test('old or corrupted appearance preferences produce a finite, bounded UI scale', () => {
+  const { normalizePreferences, uiScale } = load(async () => json({ok:true})).__test;
+  for (const fontSize of [undefined, null, '', 'bad', 0, -1, Infinity, NaN]) {
+    const prefs = normalizePreferences({fontSize, importMode:'skip'});
+    assert.equal(prefs.fontSize,13); assert.equal(uiScale(prefs),1); assert.equal(prefs.importMode,'skip');
+  }
+  assert.equal(normalizePreferences({fontSize:7}).fontSize,11);
+  assert.equal(normalizePreferences({fontSize:999}).fontSize,20);
+  assert.equal(normalizePreferences({fontSize:'16'}).fontSize,16);
+  assert.equal(uiScale({fontSize:20}),20/13);
+});
+
+test('task presentation resolves owners and preserves completion and exceptional states', () => {
+  const {taskPresentation}=load(async()=>json({ok:true})).__test;
+  const members=[{id:'a',name:'Alice'}];
+  assert.equal(taskPresentation({assigneeId:'a',status:'completed'},members).owner,'Alice');
+  assert.equal(taskPresentation({assigneeId:'a',status:'completed'},members).status,'已完成');
+  for(const assigneeId of [null,'','removed-member']) assert.equal(taskPresentation({assigneeId,status:'pending'},members).owner,'未分配');
+  for(const [status,label] of [['in_progress','进行中'],['failed','失败（可重试）'],['cancelled','已停止'],['awaiting_approval','待审批'],['unexpected','状态未知']]) assert.equal(taskPresentation({status},members).status,label);
+});
+
+for (const legacyHost of [null, { version: '1.1.0-beta.9', instanceId: 'old-host' }]) {
+  test(`legacy host ${legacyHost?.version ?? 'without metadata'} is readable but cannot start new model work`, async () => {
+    let posts = 0;
+    const x = load(async (_route, options) => { if (options?.method === 'POST') posts++; return json({ ok: true, groups: [group], host: legacyHost }); });
+    const { store, createApi, hostCompatibility } = x.__test;
+    store.update(s => { s.host = null; s.hostChecked = false; });
+    const api = createApi(store);
+    try {
+      await assert.rejects(api.command({ op: 'sendMessage', groupId: 'g', text: 'hi' }), /旧版|不一致/);
+      assert.equal(posts, 0); assert.equal(store.getSnapshot().groups[0].id, 'g');
+      assert.ok(hostCompatibility(store.getSnapshot().host));
+      for (const op of ['planTasks', 'executeTasks', 'testConnection', 'summarizeMemory']) {
+        await assert.rejects(api.command({ op, groupId: 'g' }), /旧版|不一致/);
+      }
+      assert.equal(posts, 0);
+    } finally { api.dispose(); }
+  });
+}
+
+test('matching host sends the client version and a stale SSE host identity blocks further model work', async () => {
+  const bodies = [];
+  const x = load(async (_route, options) => {
+    if (options?.body) bodies.push(JSON.parse(options.body));
+    return json({ ok: true, groups: [group], connection: { state: 'connected' } });
+  });
+  const { store, createApi, applyFrame } = x.__test, api = createApi(store);
+  try {
+    await api.refresh(); await api.command({ op: 'testConnection', groupId: 'g' });
+    assert.equal(bodies[0].clientVersion, host.version);
+    applyFrame({ type: 'snapshot', groupId: 'g', host: { version: '1.1.0-beta.8', instanceId: 'stale' }, group });
+    await assert.rejects(api.command({ op: 'sendMessage', groupId: 'g', text: 'hi' }), /beta\.8/);
+    assert.equal(bodies.length, 1);
+    await api.refresh(); await api.command({ op: 'sendMessage', groupId: 'g', text: 'hi' });
+    assert.equal(bodies.length, 2);
+    const records = x.__test.bootLog.filter(entry => entry.event === 'host-identity');
+    assert.ok(records.some(entry => entry.host.version === '1.1.0-beta.8' && entry.compatible === false));
+    assert.equal(store.getSnapshot().host.version, host.version);
+  } finally { api.dispose(); }
+});
+
+test('a command rejected by a different host updates the visible host identity before the error is raised', async () => {
+  const x=load(async()=>new Response(JSON.stringify({ok:false,error:'version mismatch',host:{version:'1.1.0-beta.9',instanceId:'unexpected-host'}}),{status:400}));
+  const api=x.__test.createApi(x.__test.store);
+  try{
+    await assert.rejects(api.command({op:'sendMessage',groupId:'g',text:'hi'}),/version mismatch/);
+    assert.equal(x.__test.store.getSnapshot().host.version,'1.1.0-beta.9');
+    assert.match(x.__test.hostCompatibility(x.__test.store.getSnapshot().host),/不一致/);
+  }finally{api.dispose();}
+});
+
+test('model progress survives stale command snapshots and cannot overwrite a finished message', () => {
+  const x = load(async () => json({ok:true}));
+  const {store,applyFrame,mergeCommandGroup}=x.__test;
+  store.update(s=>{s.groups=[{...group,messages:[{id:'m',seq:1,status:'streaming',text:''}]}];s.activeGroupId='g';});
+  applyFrame({type:'message-progress',groupId:'g',messageId:'m',diagnostics:{phase:'reasoning',attempt:2,durationMs:100,reasoningChars:20}});
+  assert.equal(store.getSnapshot().groups[0].messages[0].diagnostics.phase,'reasoning');
+  const merged=mergeCommandGroup(store.getSnapshot().groups[0],{...group,seq:1,messages:[{id:'m',seq:1,status:'streaming',text:'',diagnostics:{phase:'waiting',attempt:1,durationMs:0}}]});
+  assert.equal(merged.messages[0].diagnostics.attempt,2);
+  const sameTime=mergeCommandGroup({...group,messages:[{id:'m',seq:1,status:'streaming',text:'',diagnostics:{phase:'reasoning',attempt:1,durationMs:0,progressSeq:2}}]}, {...group,messages:[{id:'m',seq:1,status:'streaming',text:'',diagnostics:{phase:'waiting',attempt:1,durationMs:0,progressSeq:1}}]});
+  assert.equal(sameTime.messages[0].diagnostics.phase,'reasoning');
+  applyFrame({type:'message',groupId:'g',message:{id:'m',seq:1,status:'done',text:'OK',diagnostics:{phase:'done'}}});
+  applyFrame({type:'message-progress',groupId:'g',messageId:'m',diagnostics:{phase:'retrying'}});
+  applyFrame({type:'delta',groupId:'g',messageId:'m',text:'late'});
+  assert.equal(store.getSnapshot().groups[0].messages[0].text,'OK');assert.equal(store.getSnapshot().groups[0].messages[0].diagnostics.phase,'done');
+  const snapshot={type:'snapshot',groupId:'g',group:{...group,messages:[{id:'restored',status:'done',text:'PRIVATE_REPLY_TEXT',diagnostics:{phase:'done',attempt:1,progressSeq:3,reasoningChars:20}}]}};
+  applyFrame(snapshot);applyFrame(snapshot);
+  const recovered=x.__test.bootLog.filter(entry=>entry.event==='model-call'&&entry.messageId==='restored');assert.equal(recovered.length,1);assert.equal(recovered[0].diagnostics.reasoningChars,20);assert.ok(!JSON.stringify(recovered).includes('PRIVATE_REPLY_TEXT'));
+});
+
+test('connection checks allow the host deadline while ordinary commands keep the short HTTP timeout', async () => {
+  const delays=[];
+  const x=load(async()=>json({ok:true}),{setTimeout:(fn,ms)=>{delays.push(ms);return delays.length;},clearTimeout:()=>{}});
+  const api=x.__test.createApi(x.__test.store);
+  try{await api.command({op:'testConnection',groupId:'g'});await api.command({op:'stopTurn',groupId:'g'});assert.deepEqual(delays,[75000,15000]);}
+  finally{api.dispose();}
+});
 
 test('failed refresh preserves history, ends loading, and never creates a default group', async () => {
   const x = load(async () => { throw Error('offline'); });

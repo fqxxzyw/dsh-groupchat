@@ -21,7 +21,7 @@ const ctx = {
   get: (name) => name === 'uiConversation' ? {views:{register:(definition)=>{targetDefinition=definition;return ()=>{targetDefinition=null;};}}} : name === 'modelDirectories' && window.useModelDirectory ? {directoryFor:()=>directory} : undefined,
   sessions: {binding:(sessionId)=>({sessionId,eventSource:{getSnapshot:()=>({entries:window.mainEntries??[]})},session:{projections:{faceOf:(name)=>name==='modelSelection'?modelSource:{getSnapshot:()=>[]}}}})},
   effect: (fn) => { disposers.push(fn()); },
-  locale: { register: () => () => {}, bind: () => (key) => key },
+  locale: { register: () => () => {}, bind: () => (key) => ({'member.add':'新增角色','model.waiting':'正在等待模型…','model.reasoning':'正在思考…','model.retrying':'通道暂时失败，正在自动重试…'}[key] ?? key) },
   slots: {
     inject: (name, fn) => { disposers.push(fn()); },
     register: (options, component) => {
@@ -32,7 +32,7 @@ const ctx = {
 };
 window.start = () => {
   window.plugin.apply(ctx);
-  const t = (key) => ({ 'composer.send':'发送', 'composer.stop':'停止', 'composer.placeholder':'@成员名，开始协作', 'view.loading':'正在加载群聊…', 'panel.members':'成员', 'panel.memory':'记忆', 'panel.tasks':'任务', 'actions.clear':'清空' }[key] ?? key);
+  const t = (key) => ({ 'composer.send':'发送', 'composer.stop':'停止', 'composer.placeholder':'@成员名，开始协作', 'view.loading':'正在加载群聊…', 'panel.members':'成员', 'panel.memory':'记忆', 'panel.tasks':'任务', 'actions.clear':'清空', 'member.add':'新增角色','model.waiting':'正在等待模型…', 'model.reasoning':'正在思考…', 'model.retrying':'通道暂时失败，正在自动重试…' }[key] ?? key);
   function App() {
     React.useSyncExternalStore((fn)=>{ subscriptions.add(fn); return ()=>subscriptions.delete(fn); },()=>generation);
     const [session,setSession] = React.useState('session-1');

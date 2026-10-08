@@ -1,7 +1,7 @@
 {
   "name": "dsh-groupchat",
   "description": "DeepSeek Harness 多智能体群聊插件：独立会话、多模型角色、跨群 @ 协作、任务分工、成员记忆与审批",
-  "version": "1.1.0-beta.8",
+  "version": "1.1.0-beta.11",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -16,7 +16,12 @@
     "CHANGELOG.md",
     "TESTING.md",
     "TEST-RESULTS.md",
-    "AGENT-COLLABORATION.md"
+    "AGENT-COLLABORATION.md",
+    "tests",
+    "INSTALL.md",
+    "install-local.ps1",
+    "BUILD-MANIFEST.json",
+    "scripts"
   ],
   "license": "MIT",
   "dependencies": {},
@@ -41,7 +46,7 @@
   "scripts": {
     "test": "node --test tests/client.test.mjs tests/host.test.mjs",
     "test:browser": "node --test tests/browser.test.mjs",
-    "check": "node --check lib/index.js && node --check lib/client.js"
+    "check": "node --check lib/index.js && node --check lib/client.js && node --check scripts/verify-install.mjs"
   },
   "devDependencies": {
     "react": "19.3.0",
