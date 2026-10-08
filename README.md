@@ -9,6 +9,35 @@
 [![DSH Plugin](https://img.shields.io/badge/DSH-dsh--plugin-0e7490?style=flat-square)](https://github.com/topics/dsh-plugin)
 [![JavaScript](https://img.shields.io/badge/language-JavaScript-f7df1e?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat)
 
+## 大肥鱼示例
+
+空群会使用主对话当前选择的 API、模型与推理档位创建「大肥鱼」，已有成员保持原样。她参考鲸鱼娘社区二创设定：软萌、嘴硬、爱吃米饭，处理任务时认真清晰。名字、头像和性格均可在成员设置中修改。
+
+<p><img src="https://raw.githubusercontent.com/Neko3000/deepseek-whalechan/0917fd14bb96ced343145b5c9574f5714d57c0c6/skills/whalechan-image-comic/assets/character-references/chibi/0057_patting_full_belly_rendered_isolated.webp" alt="大肥鱼吃饱后拍肚子的笑脸表情" width="160"></p>
+
+头像来自 [DeepSeek Whale-chan 社区素材](https://github.com/Neko3000/deepseek-whalechan/blob/0917fd14bb96ced343145b5c9574f5714d57c0c6/skills/whalechan-image-comic/assets/character-references/chibi/0057_patting_full_belly_rendered_isolated.webp)，以外部图片链接展示，需要联网加载。该社区美术素材不属于本插件的 MIT 代码许可；[来源说明](https://github.com/Neko3000/deepseek-whalechan/blob/main/THIRD-PARTY-NOTICES.md)。
+
+日常聊天示意（实际回复由所选模型生成）：
+
+> 你：@大肥鱼 今天也在吃白饭吗？
+>
+> 大肥鱼：这叫补充算力！吃饱才有力气帮你想办法嘛 🐋
+
+任务输入示例：
+
+```text
+@大肥鱼 帮我讲清楚 RNN 模型里 __init__、forward 和实例调用的关系，给一个可以运行的简短例子。
+```
+
+与其他成员协作时，先添加需要的角色，再切换到「协作任务」模式：
+
+```text
+@大肥鱼 @评审专家 一起检查这份方案：大肥鱼整理实现步骤，评审专家检查遗漏，最后汇总建议。
+```
+
+
+---
+
 [安装方式](#安装方式) · [详细功能](#功能详细介绍) · [提交 Bug](https://github.com/fqxxzyw/dsh-groupchat/issues) · [更新日志](CHANGELOG.md) · [本地验收](TESTING.md)
 
 **当前版本：1.1.0-beta.11，测试版。** 自动化测试使用模拟模型；真实模型与宿主环境请按验收说明核对。这是社区插件，与 DeepSeek Harness 官方无隶属关系。
@@ -221,32 +250,6 @@ npm run test:browser
 
 模型须按 `groupchat-actions` JSON 协议返回，宿主验证后才创建和接力。系统消息记录创建者、下级名字和继承的模型。默认关闭、只读或审批成员均不能自动创建。每条回复最多创建一个成员，自动管理在本群最多20成员时停止创建；调用仍受自动讨论轮数、任务深度和停止操作限制。新成员继承调用者 API、模型和推理档位，不会擅自选择其他付费接口。模型能否正确返回协议，仍取决于模型本身；语法错误会显示失败原因，不把动作标为成功。
 
-## 大肥鱼示例
-
-空群会使用主对话当前选择的 API、模型与推理档位创建「大肥鱼」，已有成员保持原样。她参考鲸鱼娘社区二创设定：软萌、嘴硬、爱吃米饭，处理任务时认真清晰。名字、头像和性格均可在成员设置中修改。
-
-<p><img src="https://raw.githubusercontent.com/Neko3000/deepseek-whalechan/0917fd14bb96ced343145b5c9574f5714d57c0c6/skills/whalechan-image-comic/assets/character-references/chibi/0057_patting_full_belly_rendered_isolated.webp" alt="大肥鱼吃饱后拍肚子的笑脸表情" width="160"></p>
-
-头像来自 [DeepSeek Whale-chan 社区素材](https://github.com/Neko3000/deepseek-whalechan/blob/0917fd14bb96ced343145b5c9574f5714d57c0c6/skills/whalechan-image-comic/assets/character-references/chibi/0057_patting_full_belly_rendered_isolated.webp)，以外部图片链接展示，需要联网加载。该社区美术素材不属于本插件的 MIT 代码许可；[来源说明](https://github.com/Neko3000/deepseek-whalechan/blob/main/THIRD-PARTY-NOTICES.md)。
-
-日常聊天示意（实际回复由所选模型生成）：
-
-> 你：@大肥鱼 今天也在吃白饭吗？
->
-> 大肥鱼：这叫补充算力！吃饱才有力气帮你想办法嘛 🐋
-
-任务输入示例：
-
-```text
-@大肥鱼 帮我讲清楚 RNN 模型里 __init__、forward 和实例调用的关系，给一个可以运行的简短例子。
-```
-
-与其他成员协作时，先添加需要的角色，再切换到「协作任务」模式：
-
-```text
-@大肥鱼 @评审专家 一起检查这份方案：大肥鱼整理实现步骤，评审专家检查遗漏，最后汇总建议。
-```
-
 ## 更新与诊断
 
 覆盖源码前关闭 DSH。解压后确认目录直接包含 `package.json`、`lib` 和 `cordis.patch.yml`；已使用本地 link 安装的用户覆盖同一目录，保留 `$DSH_HOME/storages/dsh-groupchat/state.json`，重启宿主并刷新客户端。顶部应同时显示 **群聊 beta.11 / 宿主 beta.11**；显示未确认或不一致时点击「核对宿主」，按 [INSTALL.md](INSTALL.md) 核对安装目录。全局设置保存即可生效，代码更新是否支持 HMR 取决于宿主配置。
@@ -264,3 +267,4 @@ window.__DSH_GROUPCHAT_DIAGNOSTICS__?.download()
 客户端诊断会自动写入 `$DSH_HOME/storages/dsh-groupchat/diagnostics.json`；宿主独立保存最近 100 条模型调用状态到同目录的 `model-diagnostics.json`。访问 `/groupchat/diagnostics` 或使用导出按钮时，两部分与当前宿主身份一起返回；不再依赖客户端恰好收到完成事件。关键启动记录也会保留。若插件工厂根本没有执行，需要宿主的 loader / 激活日志，浏览器记录器无法代替宿主崩溃日志。
 
 当前本地验证使用模拟模型；真实 DSH、账号通道、网关及会话切换仍需实际复测。不要把一次自动化通过当作真实通道或宿主故障已完全排除。验收步骤见 [TESTING.md](TESTING.md)，每版变更集中在 [CHANGELOG.md](CHANGELOG.md)。
+
