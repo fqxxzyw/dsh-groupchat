@@ -406,7 +406,7 @@ test('Chromium + real plugin HTTP engine: an existing user-only group gets main-
     assert.equal(await page.getByRole('dialog',{name:'首次进入群聊'}).count(),0);assert.equal(calls.length,4);
     state=await(await page.request.get(base+'/groupchat/state')).json();assert.equal(state.groups.length,2);assert.ok(state.groups.some(g=>g.hostSessionId==='session-2'&&g.messages.length===2));
     await page.locator('#return-old').click();await page.getByRole('button',{name:'开始协作',exact:true}).waitFor();
-    assert.match(await page.locator('.gc-version').textContent(),/beta\.11 \/ 宿主 beta\.11/);
+    assert.match(await page.locator('.gc-version').textContent(),/beta\.12 \/ 宿主 beta\.12/);
     await page.getByRole('combobox',{name:'对话模式'}).selectOption('chat');
     emptyReply=true;
     await page.locator('.gc-composer-input').fill('验证空回复诊断');await page.getByRole('button',{name:'发送',exact:true}).click();
@@ -433,7 +433,7 @@ test('Chromium + real plugin HTTP engine: an existing user-only group gets main-
     assert.ok(!JSON.stringify(exportedData).includes('验证空回复诊断'));assert.ok(!JSON.stringify(exportedData).includes('PRIVATE_REASONING_TEXT'));
     await page.getByRole('button',{name:'导入偏好 / 全局设置',exact:true}).click();
     await page.getByText('宿主加载详情',{exact:true}).click();
-    assert.match(await page.locator('.gc-runtime-details').textContent(),/实际加载文件.*lib\/index\.js/);
+    assert.match(await page.locator('.gc-runtime-details').textContent(),/实际加载文件.*lib[\\/]+index\.js/);
     assert.equal(await page.locator('[data-host-mismatch]').count(),0);
     assert.deepEqual(errors,[]);
   }finally{

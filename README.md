@@ -4,7 +4,7 @@
 
 [![Version](https://img.shields.io/badge/version-1.1.0--beta.12-4d7bfe?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat/blob/main/package.json)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Local tests](https://img.shields.io/badge/local_tests-79_Node-success?style=flat-square)](TEST-RESULTS.md)
+[![Local tests](https://img.shields.io/badge/local_tests-79_Node_%2B_3_Chrome-success?style=flat-square)](TEST-RESULTS.md)
 [![GitHub stars](https://img.shields.io/github/stars/fqxxzyw/dsh-groupchat?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat/stargazers)
 [![DSH Plugin](https://img.shields.io/badge/DSH-dsh--plugin-0e7490?style=flat-square)](https://github.com/topics/dsh-plugin)
 [![JavaScript](https://img.shields.io/badge/language-JavaScript-f7df1e?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat)

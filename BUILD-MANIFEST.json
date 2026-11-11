@@ -20,11 +20,11 @@
     },
     {
       "path": "README.md",
-      "sha256": "0d8eb028dcb3570e765ea2901a4656464f5f2c3d9ae13e80c557d4caef054c3d"
+      "sha256": "fe89ceafe5084a622bd54e1568510a366286aee610539b13e8b88ec2e16829e3"
     },
     {
       "path": "TEST-RESULTS.md",
-      "sha256": "87e08fdc841937abec081b20358ea4a53056ca3035054b97b93b292b96444601"
+      "sha256": "653f20a588498209d081668a624db06dd5af3c5b6f1c5c0180a138f8573ad7dd"
     },
     {
       "path": "TESTING.md",
@@ -60,7 +60,7 @@
     },
     {
       "path": "tests/browser.test.mjs",
-      "sha256": "f5969a389efcdea2afd467c06667484e373d49d1a720a26704dffc018cee2a23"
+      "sha256": "a06cc89b29d1bb4c1eab17ca892bd806c8a7a601d2679f4e7a0b72a3301dd05b"
     },
     {
       "path": "tests/client.test.mjs",
