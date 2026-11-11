@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 const source = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8').replace('exports.apply = apply;', 'exports.__test = { store, createApi, applyFrame, mergeCommandGroup, activeGroup, mainSelectionOf, hostContextOf, markdownBlocks, safeLink, bootLog, hostCompatibility, receiveHost, normalizePreferences, uiScale, taskPresentation }; exports.apply = apply;');
-const host = { version: '1.1.0-beta.11', instanceId: 'test-host', sourceFile: 'C:/plugins/dsh-groupchat/lib/index.js', config: { replyRetryCount: 2 } };
+const host = { version: '1.1.0-beta.12', instanceId: 'test-host', sourceFile: 'C:/plugins/dsh-groupchat/lib/index.js', config: { replyRetryCount: 2 } };
 function load(fetcher, clock = { setTimeout, clearTimeout }) {
   let exports;
   const copy = (x) => typeof x !== 'object' || x === null ? x : Array.isArray(x) ? x.map(copy) : Object.fromEntries(Object.entries(x).map(([k, v]) => [k, copy(v)]));

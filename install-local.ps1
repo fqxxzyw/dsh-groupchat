@@ -20,4 +20,4 @@ Write-Host "Registering plugin directory: $pluginDir"
 & $dshCommand.Source plugin --profile $Profile add $link
 if ($LASTEXITCODE -ne 0) { throw "DSH plugin registration failed (exit $LASTEXITCODE). Check the existing bundle path in DSH plugin settings." }
 Write-Host 'Registration completed. Exit DSH completely (including the tray process), then restart it.'
-Write-Host 'Open Group Chat and confirm both the client and host are beta.11. Existing chat data is retained.'
+Write-Host 'Open Group Chat and confirm both the client and host are beta.12. Existing chat data is retained.'

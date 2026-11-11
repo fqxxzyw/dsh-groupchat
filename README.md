@@ -2,9 +2,9 @@
 
 **为 DeepSeek Harness（DSH）提供多模型、多角色群聊，让日常聊天、智能体分工、共享记忆与任务协作共存在一个窗口。每个主对话拥有独立群聊，可跨群引入成员并通过 @ 协作。**
 
-[![Version](https://img.shields.io/badge/version-1.1.0--beta.11-4d7bfe?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat/blob/main/package.json)
+[![Version](https://img.shields.io/badge/version-1.1.0--beta.12-4d7bfe?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat/blob/main/package.json)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Local tests](https://img.shields.io/badge/local_tests-79_Node_%2B_3_Chromium-success?style=flat-square)](TEST-RESULTS.md)
+[![Local tests](https://img.shields.io/badge/local_tests-79_Node-success?style=flat-square)](TEST-RESULTS.md)
 [![GitHub stars](https://img.shields.io/github/stars/fqxxzyw/dsh-groupchat?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat/stargazers)
 [![DSH Plugin](https://img.shields.io/badge/DSH-dsh--plugin-0e7490?style=flat-square)](https://github.com/topics/dsh-plugin)
 [![JavaScript](https://img.shields.io/badge/language-JavaScript-f7df1e?style=flat-square)](https://github.com/fqxxzyw/dsh-groupchat)
@@ -40,7 +40,7 @@
 
 [安装方式](#安装方式) · [详细功能](#功能详细介绍) · [提交 Bug](https://github.com/fqxxzyw/dsh-groupchat/issues) · [更新日志](CHANGELOG.md) · [本地验收](TESTING.md)
 
-**当前版本：1.1.0-beta.11，测试版。** 自动化测试使用模拟模型；真实模型与宿主环境请按验收说明核对。这是社区插件，与 DeepSeek Harness 官方无隶属关系。
+**当前版本：1.1.0-beta.12，测试版。** 支持 DSH 0.2.0-rc.2 与 0.2.1-rc.5 对应的 LLM 服务版本；其他版本尚未声明兼容。自动化测试使用模拟模型；真实模型与宿主环境请按验收说明核对。这是社区插件，与 DeepSeek Harness 官方无隶属关系。
 
 功能标签：[`dsh-plugin`](https://github.com/topics/dsh-plugin) · [`deepseek-harness`](https://github.com/topics/deepseek-harness) · [`multi-agent`](https://github.com/topics/multi-agent) · [`groupchat`](https://github.com/topics/groupchat) · [`ai`](https://github.com/topics/ai) · [`agent`](https://github.com/topics/agent) · [`plugins`](https://github.com/topics/plugins) · [`javascript`](https://github.com/topics/javascript) · [`open-source`](https://github.com/topics/open-source)
 
@@ -65,7 +65,7 @@
 
 > 请安装这个 DeepSeek Harness 插件：https://github.com/fqxxzyw/dsh-groupchat 。先阅读 README，按当前 profile 安装并启用，已有安装则升级，保留群聊数据。
 
-需要 DSH 对话具备插件管理或相应操作能力；普通文字聊天不能自行完成安装。安装后重启、刷新并核对 beta.11。
+需要 DSH 对话具备插件管理或相应操作能力；普通文字聊天不能自行完成安装。安装后重启、刷新并核对 beta.12。
 
 ### 本地测试版（推荐先验收）
 
@@ -77,7 +77,7 @@
 dsh plugin --profile desktop add link:C:/plugins/dsh-groupchat
 ```
 
-路径按实际解压位置调整。安装后在「设置 → 插件」启用插件，重启宿主并刷新客户端。在聊天区选择「群聊」，确认顶部同时显示 **群聊 beta.11 / 宿主 beta.11**。替换已安装源码前请关闭宿主并备份插件目录和群聊数据；详细验收见 [TESTING.md](TESTING.md)。
+路径按实际解压位置调整。安装后在「设置 → 插件」启用插件，重启宿主并刷新客户端。在聊天区选择「群聊」，确认顶部同时显示 **群聊 beta.12 / 宿主 beta.12**。替换已安装源码前请关闭宿主并备份插件目录和群聊数据；详细验收见 [TESTING.md](TESTING.md)。
 
 ### GitHub 源码安装
 
@@ -252,7 +252,7 @@ npm run test:browser
 
 ## 更新与诊断
 
-覆盖源码前关闭 DSH。解压后确认目录直接包含 `package.json`、`lib` 和 `cordis.patch.yml`；已使用本地 link 安装的用户覆盖同一目录，保留 `$DSH_HOME/storages/dsh-groupchat/state.json`，重启宿主并刷新客户端。顶部应同时显示 **群聊 beta.11 / 宿主 beta.11**；显示未确认或不一致时点击「核对宿主」，按 [INSTALL.md](INSTALL.md) 核对安装目录。全局设置保存即可生效，代码更新是否支持 HMR 取决于宿主配置。
+覆盖源码前关闭 DSH。解压后确认目录直接包含 `package.json`、`lib` 和 `cordis.patch.yml`；已使用本地 link 安装的用户覆盖同一目录，保留 `$DSH_HOME/storages/dsh-groupchat/state.json`，重启宿主并刷新客户端。顶部应同时显示 **群聊 beta.12 / 宿主 beta.12**；显示未确认或不一致时点击「核对宿主」，按 [INSTALL.md](INSTALL.md) 核对安装目录。全局设置保存即可生效，代码更新是否支持 HMR 取决于宿主配置。
 
 成员编辑窗口支持右上角 ×、Escape 和点遮罩关闭。成员侧栏也提供独立的顶部 × 与底部收起按钮。
 

@@ -21,7 +21,7 @@ test('Chromium: robot task overview stays current and font preferences scale the
     {id:'t5',title:'修正结果',assigneeId:'a',status:'failed'},
     {id:'t6',title:'审核草稿',assigneeId:'b',status:'awaiting_approval'},
   ]};
-  const host={version:'1.1.0-beta.11',instanceId:'task-scale-test',config:{replyRetryCount:2}};
+  const host={version:'1.1.0-beta.12',instanceId:'task-scale-test',config:{replyRetryCount:2}};
   const json=(res,value)=>{res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({host,...value}));};
   const server=createServer((req,res)=>{
     if(req.url==='/'){res.end(`<html><head><meta charset="utf-8"><style>${hostCSS}</style></head><body><div id="app"></div><script src="/bundle.js"></script></body></html>`);return;}
@@ -143,7 +143,7 @@ test('Chromium: repeated session/view switches preserve geometry, history, draft
   group.memberMemories={a:{manual:'固定偏好',notes:[{sourceId:'memory-one',createdAt:Date.now(),text:'成员观点摘录'}]}};
   const other={...group,id:'g2',hostSessionId:'session-2' ,name:'第二群',messages:[],memory:'第二群记忆'};
   other.members=[{...group.members[0],id:'b',name:'Bob',persona:'编辑和报告写作'},{...group.members[0],id:'c',name:'Boris',persona:'研究和核验'}];const groups=[group,other];
-  const host={version:'1.1.0-beta.11',instanceId:'browser-host',sourceFile:'C:/plugins/dsh-groupchat/lib/index.js',config:{replyRetryCount:2}};
+  const host={version:'1.1.0-beta.12',instanceId:'browser-host',sourceFile:'C:/plugins/dsh-groupchat/lib/index.js',config:{replyRetryCount:2}};
   const json=(res,value)=>{res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({host,...value}));};
   const server=createServer((req,res)=>{
     if(req.url==='/'){res.end(`<html><head><meta charset="utf-8"><style>${hostCSS}</style></head><body><div id="app"></div><script src="/bundle.js"></script></body></html>`);return;}
@@ -266,14 +266,14 @@ test('Chromium: repeated session/view switches preserve geometry, history, draft
     await page.getByRole('button',{name:'成员',exact:true}).click();
     const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'导出诊断',exact:true}).click()]);
     const diagnostic=JSON.parse(readFileSync(await download.path(),'utf8'));
-    assert.equal(diagnostic.current.version,'1.1.0-beta.11');
+    assert.equal(diagnostic.current.version,'1.1.0-beta.12');
     assert.ok(diagnostic.bootLog.some(entry=>entry.event==='restored-scroll-reset'));
     assert.ok(diagnostic.bootLog.some(entry=>entry.event==='apply-complete'));
     assert.ok(diagnostic.current.sections.some(section=>section.selector==='.gc-composer'&&section.height>0));
     assert.equal(diagnostic.current.pluginInputs,1);assert.equal(diagnostic.current.messages,2);
     assert.ok(!JSON.stringify(diagnostic).includes('历史消息保留'));
     await page.locator('#blank').click();await page.locator('.gc-composer-input').waitFor();
-    assert.equal(await page.locator('.gc-view').getAttribute('data-groupchat-view'),'1.1.0-beta.11');
+    assert.equal(await page.locator('.gc-view').getAttribute('data-groupchat-view'),'1.1.0-beta.12');
     await page.locator('#return-old').click();
     await page.locator('#toggle').click();await page.locator('#default-input').waitFor();assert.equal(await page.evaluate(()=>window.entryCount()),0);
     const [emergencyDownload]=await Promise.all([page.waitForEvent('download'),page.keyboard.press('Control+Alt+Shift+D')]);
@@ -319,7 +319,7 @@ test('Chromium: repeated session/view switches preserve geometry, history, draft
     await page.locator('.gc-composer-input').fill('版本混用时禁止调用');await page.getByRole('button',{name:'发送',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('.gc-composer-input').value==='版本混用时禁止调用');
     assert.equal(groups.flatMap(g=>g.messages).filter(m=>m.text==='版本混用时禁止调用').length,0);
-    host.version='1.1.0-beta.11';
+    host.version='1.1.0-beta.12';
     await page.locator('.gc-top-actions').getByRole('button',{name:'核对宿主',exact:true}).click();
     await page.waitForFunction(()=>!document.querySelector('[data-host-mismatch]'));
     await page.setViewportSize({width:430,height:700});
@@ -397,7 +397,7 @@ test('Chromium + real plugin HTTP engine: an existing user-only group gets main-
       if(autoDiagnostic?.bootLog?.some(entry=>entry.event==='model-call' && entry.diagnostics.reasoningChars>0))break;
       await new Promise(r=>setTimeout(r,50));
     }
-    assert.equal(autoDiagnostic.version,'1.1.0-beta.11');assert.ok(autoDiagnostic.bootLog.length>0);
+    assert.equal(autoDiagnostic.version,'1.1.0-beta.12');assert.ok(autoDiagnostic.bootLog.length>0);
     assert.ok(!JSON.stringify(autoDiagnostic).includes('原会话导入消息'));
     assert.ok(!JSON.stringify(autoDiagnostic).includes('PRIVATE_REASONING_TEXT'));assert.ok(autoDiagnostic.bootLog.some(entry=>entry.event==='model-call' && entry.diagnostics.reasoningChars>0));
     await page.getByRole('button',{name:'记忆',exact:true}).click();
@@ -428,7 +428,7 @@ test('Chromium + real plugin HTTP engine: an existing user-only group gets main-
     assert.equal(calls.length,7);
     const [exported]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'导出诊断',exact:true}).click()]);
     const exportedData=JSON.parse(readFileSync(await exported.path(),'utf8'));
-    assert.equal(exportedData.host.version,'1.1.0-beta.11');assert.equal(exportedData.server.host.version,'1.1.0-beta.11');
+    assert.equal(exportedData.host.version,'1.1.0-beta.12');assert.equal(exportedData.server.host.version,'1.1.0-beta.12');
     assert.ok(exportedData.server.modelCalls.some(entry=>entry.diagnostics.failureCode==='EMPTY_RESPONSE'&&entry.diagnostics.attempt===3));
     assert.ok(!JSON.stringify(exportedData).includes('验证空回复诊断'));assert.ok(!JSON.stringify(exportedData).includes('PRIVATE_REASONING_TEXT'));
     await page.getByRole('button',{name:'导入偏好 / 全局设置',exact:true}).click();
